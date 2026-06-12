@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Services Request</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root{
+    --navy:#163E64; --navy-dark:#0e2b47; --grey:#BFBFBF; --bg:#f5f7fa;
+    --green:#107c10; --red:#c50f1f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+  body{background:var(--bg);color:#222;padding:14px;max-width:480px;margin:0 auto}
+  h1{font-size:18px;color:var(--navy);margin-bottom:2px}
+  .sub{font-size:12px;color:#666;margin-bottom:14px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--navy);margin-bottom:5px}
+  .req::after{content:" *";color:var(--red)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chips button{flex:1;min-width:90px;padding:11px 6px;font-size:14px;font-weight:600;
+    border:1.5px solid var(--grey);border-radius:6px;background:#fff;color:#555;cursor:pointer;transition:.12s}
+  .chips button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .chips button.on::before{content:"\2713 ";font-weight:700}
+  .yn{display:flex;gap:8px}
+  .yn button{flex:1;padding:10px 0;font-size:14px;font-weight:600;border:1.5px solid var(--grey);
+    border-radius:6px;background:#fff;color:#555;cursor:pointer;transition:.12s}
+  .yn button.sel-y{background:var(--navy);border-color:var(--navy);color:#fff}
+  .yn button.sel-n{background:#5a6b7d;border-color:#5a6b7d;color:#fff}
+  input[type=text],input[type=date],textarea{width:100%;padding:10px;font-size:14px;
+    border:1.5px solid var(--grey);border-radius:6px;background:#fff}
+  input:focus,textarea:focus{outline:none;border-color:var(--navy)}
+  textarea{resize:vertical;min-height:56px}
+  .ctx{background:#e8eef5;border-left:3px solid var(--navy);padding:8px 10px;font-size:12px;
+    color:#334;border-radius:0 6px 6px 0;margin-bottom:14px;display:none}
+  .hint{font-size:11px;color:#667;margin-top:4px}
+  .hint.found{color:var(--green);font-weight:600}
+  .copilotTip{display:none;background:#fff8e1;border:1px solid #e6c200;border-radius:6px;
+    padding:8px 10px;font-size:12px;color:#5a4a00;margin-top:6px}
+  .copilotTip button{margin-top:6px;padding:6px 10px;font-size:12px;font-weight:600;border:1px solid #b59410;
+    border-radius:5px;background:#fff;color:#5a4a00;cursor:pointer}
+  #missing{font-size:12px;color:var(--red);margin:6px 0;min-height:15px}
+  .primary{width:100%;padding:13px;font-size:15px;font-weight:600;color:#fff;background:var(--navy);
+    border:none;border-radius:6px;cursor:pointer}
+  .primary:disabled{background:var(--grey);cursor:not-allowed}
+  .primary:not(:disabled):hover{background:var(--navy-dark)}
+  .secondary{width:100%;padding:11px;font-size:13px;font-weight:600;color:var(--navy);background:#fff;
+    border:1.5px solid var(--navy);border-radius:6px;cursor:pointer;margin-top:8px;display:none}
+  #status{font-size:12px;margin-top:8px;min-height:15px}
+  #status.ok{color:var(--green)} #status.err{color:var(--red)}
+</style>
+</head>
+<body>
+  <h1>Design Services Request</h1>
+  <div class="sub">Fields marked * are required before the DSR can be sent.</div>
+  <div class="ctx" id="ctx"></div>
+
+  <div class="field">
+    <label class="req">Services Requested <span style="font-weight:400;color:#667">(select all that apply)</span></label>
+    <div class="chips" id="services">
+      <button type="button" data-v="Crossover">Crossover</button>
+      <button type="button" data-v="Layout">Layout</button>
+      <button type="button" data-v="Submittal">Submittal</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Cost Saving?</label>
+    <div class="chips"><button type="button" id="costsavingBtn">Cost Saving</button></div>
+    <div class="hint">Optional - leave unselected if not a cost-saving opportunity.</div>
+  </div>
+
+  <div class="field">
+    <label class="req" for="pname">Project Name</label>
+    <input type="text" id="pname" maxlength="120" autocomplete="off">
+    <div class="hint" id="pnameHint"></div>
+  </div>
+
+  <div class="field">
+    <label for="pnum">Project # <span style="font-weight:400;color:#667">(optional — include if available)</span></label>
+    <input type="text" id="pnum" maxlength="60" autocomplete="off" placeholder="e.g. 14569">
+    <div class="hint" id="pnumHint"></div>
+    <div class="copilotTip" id="copilotTip">
+      No project # found in the email body. It may be in an attachment (drawing title block).
+      Ask Copilot in Outlook to check, then paste the answer here.
+      <br><button type="button" id="copyPrompt">Copy Copilot prompt</button>
+    </div>
+  </div>
+
+  <div class="field"><label class="req" for="needed">Needed By</label><input type="date" id="needed"></div>
+  <div class="field"><label for="notes">Notes (optional)</label><textarea id="notes" maxlength="2000" placeholder="Anything the designers should know"></textarea></div>
+
+  <div id="missing"></div>
+  <button class="primary" id="go" disabled>Create DSR email</button>
+  <button class="secondary" id="copyBtn">Copy DSR text instead</button>
+  <div id="status"></div>
+
+<script>
+(function(){
+  var DSR_TO = "lightingdsr@macsii.com";
+  // Paste your Power Automate "HTTP request received" URL here to enable
+  // one-tap submission that forwards the ORIGINAL client email + attachments.
+  // Leave empty to fall back to opening a pre-filled email (no attachments).
+  var FLOW_URL = "";
+  var FLOW_KEY = "";  // optional shared secret, sent inside the JSON body as "key"
+  var SERVICES = ["Crossover","Layout","Submittal"];
+  var COPILOT_PROMPT = "Look at this email and all of its attachments. Find the project number (often shown on a drawing title block as \"PROJECT NO:\") and the project name. Reply with just: Project Name and Project #.";
+  var selected = {};            // service -> true
+  var costsaving = false;       // single toggle; unselected = No
+  var mode = "standalone";      // standalone | read | compose
+  var sourceEmail = null;       // {subject, from, date}
+  var hasOffice = false;
+
+  // --- Service multi-select chips ---
+  document.querySelectorAll("#services button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var v = btn.dataset.v;
+      selected[v] = !selected[v];
+      btn.className = selected[v] ? "on" : "";
+      validate();
+    });
+  });
+
+  // --- Cost Saving single toggle (unselected = No) ---
+  document.getElementById("costsavingBtn").addEventListener("click", function(){
+    costsaving = !costsaving;
+    this.className = costsaving ? "on" : "";
+  });
+
+  ["pname","pnum","needed","notes"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", validate);
+  });
+
+  function chosenServices(){ return SERVICES.filter(function(s){ return selected[s]; }); }
+
+  function vals(){
+    return {
+      services: chosenServices(),
+      costsaving: costsaving ? "Yes" : "No",
+      pname: document.getElementById("pname").value.trim(),
+      pnum: document.getElementById("pnum").value.trim(),
+      needed: document.getElementById("needed").value,
+      notes: document.getElementById("notes").value.trim()
+    };
+  }
+
+  function validate(){
+    var v = vals(), miss = [];
+    if(v.services.length === 0) miss.push("at least one Service");
+    if(!v.pname) miss.push("Project Name");
+    if(!v.needed) miss.push("Needed By");
+    document.getElementById("missing").textContent = miss.length ? "Still needed: " + miss.join(", ") : "";
+    document.getElementById("go").disabled = miss.length > 0;
+    return miss.length === 0;
+  }
+
+  function fmtDate(iso){
+    var p = iso.split("-");
+    return p.length===3 ? (p[1]+"/"+p[2]+"/"+p[0].slice(2)) : iso;
+  }
+
+  function subjectLine(v){
+    return "DSR | " + v.pname + (v.pnum ? " | #" + v.pnum : "") +
+      " | " + v.services.join(", ") + " | Needed by " + fmtDate(v.needed);
+  }
+
+  // Output keeps the original 7-row layout so the design team / Salesforce
+  // queue sees the same fields as before; unselected services read "No".
+  function rowsData(v){
+    var r = [
+      ["Crossover:", v.services.indexOf("Crossover")>=0 ? "Yes" : "No"],
+      ["Layout:", v.services.indexOf("Layout")>=0 ? "Yes" : "No"],
+      ["Submittal:", v.services.indexOf("Submittal")>=0 ? "Yes" : "No"],
+      ["Project Name:", v.pname],
+      ["Project #:", v.pnum || "Not available"],
+      ["Needed By:", fmtDate(v.needed)],
+      ["Cost Saving?:", v.costsaving]
+    ];
+    if(v.notes) r.push(["Notes:", v.notes]);
+    return r;
+  }
+
+  function plainBody(v){
+    var lines = ["DESIGN SERVICES REQUEST", "------------------------",
+      "Services Requested: " + v.services.join(", ")];
+    rowsData(v).forEach(function(r){ lines.push(r[0].replace(/:$/,"") + ": " + r[1]); });
+    if(sourceEmail) lines.push("", "Client email reference: \"" + sourceEmail.subject + "\" from " + sourceEmail.from + (sourceEmail.date ? " on " + sourceEmail.date : ""));
+    return lines.join("\n");
+  }
+
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+  function htmlBody(v){
+    var h = '<p><b style="color:#163E64">Design Services Request</b><br>' +
+      '<span style="font-size:13px">Services Requested: <b>' + esc(v.services.join(", ")) + '</b></span></p>' +
+      '<table style="border-collapse:collapse;font-family:Segoe UI,sans-serif;font-size:14px">';
+    rowsData(v).forEach(function(r){
+      h += '<tr><td style="border:1px solid #444;padding:4px 8px;width:130px"><b style="color:#163E64">'+esc(r[0])+'</b></td>' +
+           '<td style="border:1px solid #444;padding:4px 8px">'+esc(r[1])+'</td></tr>';
+    });
+    h += "</table>";
+    if(sourceEmail) h += '<p style="font-size:12px;color:#555">Client email reference: &quot;'+esc(sourceEmail.subject)+'&quot; from '+esc(sourceEmail.from)+(sourceEmail.date?' on '+esc(sourceEmail.date):'')+'</p>';
+    return h;
+  }
+
+  function setStatus(msg, ok){
+    var el = document.getElementById("status");
+    el.textContent = msg; el.className = ok ? "ok" : "err";
+  }
+
+  // --- Auto-extraction of Project # / Name from the email ---
+  function extractProjectNumber(text){
+    if(!text) return null;
+    var patterns = [
+      /\b(?:project|proj|job)\s*(?:no\.?|num(?:ber)?\.?|#)\s*[:.\-]?\s*#?\s*(\d{3,8})\b/i,
+      /\b(?:project|proj|job)\s*[:#]\s*(\d{3,8})\b/i,
+      /\bP\.?O?\.?\s*#\s*(\d{3,8})\b/i
+    ];
+    for(var i=0;i<patterns.length;i++){
+      var m = text.match(patterns[i]);
+      if(m) return m[1];
+    }
+    return null;
+  }
+
+  function tryExtract(item){
+    // 1. From the subject (fast)
+    var subj = item.subject || "";
+    var fromSubj = extractProjectNumber(subj);
+    if(fromSubj) applyPnum(fromSubj, "subject");
+    // 2. From the body text
+    if(item.body && item.body.getAsync){
+      item.body.getAsync(Office.CoercionType.Text, function(r){
+        if(r.status === Office.AsyncResultStatus.Succeeded){
+          var num = extractProjectNumber(r.value);
+          if(num && !document.getElementById("pnum").value) applyPnum(num, "email body");
+          if(!document.getElementById("pnum").value)
+            document.getElementById("copilotTip").style.display = "block";
+        } else if(!document.getElementById("pnum").value){
+          document.getElementById("copilotTip").style.display = "block";
+        }
+        validate();
+      });
+    } else if(!fromSubj){
+      document.getElementById("copilotTip").style.display = "block";
+    }
+  }
+
+  function applyPnum(num, where){
+    document.getElementById("pnum").value = num;
+    var h = document.getElementById("pnumHint");
+    h.textContent = "Auto-detected from the " + where + " - please verify.";
+    h.className = "hint found";
+    document.getElementById("copilotTip").style.display = "none";
+  }
+
+  document.getElementById("copyPrompt").addEventListener("click", function(){
+    copyText(COPILOT_PROMPT, "Prompt copied - open Copilot in Outlook and paste it.");
+  });
+
+  function copyText(txt, okMsg){
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(
+      function(){ setStatus(okMsg, true); },
+      function(){
+        var ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta);
+        ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+        setStatus(okMsg, true);
+      });
+  }
+
+  // --- Send paths ---
+  // Path 1 (best, all platforms incl. mobile): POST to the Power Automate flow,
+  // which forwards the ORIGINAL client email with all attachments to DSR_TO,
+  // prepending the DSR table. Requires FLOW_URL to be configured.
+  function submitToFlow(v){
+    var item = Office.context.mailbox.item;
+    var payload = {
+      services: v.services, costSaving: v.costsaving,
+      projectName: v.pname, projectNumber: v.pnum || "Not available",
+      neededBy: fmtDate(v.needed), notes: v.notes,
+      dsrHtml: htmlBody(v),
+      itemId: item.itemId, itemIdType: "ews",
+      userEmail: Office.context.mailbox.userProfile.emailAddress,
+      clientSubject: sourceEmail ? sourceEmail.subject : "",
+      clientFrom: sourceEmail ? sourceEmail.from : "",
+      key: FLOW_KEY
+    };
+    document.getElementById("go").disabled = true;
+    setStatus("Submitting DSR...", true);
+    // mode:'no-cors' + text/plain = a "simple request": Power Automate's HTTP
+    // trigger has no CORS support, so the response is opaque - the POST itself
+    // is delivered. The flow sends the rep a confirmation email on success.
+    fetch(FLOW_URL, {
+      method: "POST", mode: "no-cors",
+      headers: {"Content-Type": "text/plain;charset=UTF-8"},
+      body: JSON.stringify(payload)
+    }).then(function(){
+      setStatus("DSR submitted. The client email and its attachments will be forwarded to the design queue - you'll receive a confirmation email within a minute.", true);
+    }).catch(function(e){
+      document.getElementById("go").disabled = false;
+      setStatus("Submission failed (" + e.message + "). Falling back to a pre-filled email (attachments will NOT be included - please forward the client email separately).", false);
+      legacySend(v);
+    });
+  }
+
+  function send(){
+    if(!validate()) return;
+    var v = vals();
+    if(FLOW_URL && mode === "read" && hasOffice){
+      submitToFlow(v);
+      return;
+    }
+    legacySend(v);
+  }
+
+  function legacySend(v){
+    if(mode === "compose"){
+      var item = Office.context.mailbox.item;
+      item.to.setAsync([DSR_TO]);
+      item.subject.setAsync(subjectLine(v));
+      item.body.setAsync(htmlBody(v), {coercionType: Office.CoercionType.Html}, function(r){
+        setStatus(r.status === Office.AsyncResultStatus.Succeeded ?
+          "DSR inserted - review and press Send." : "Could not write to the email: " + (r.error&&r.error.message), r.status === Office.AsyncResultStatus.Succeeded);
+      });
+      return;
+    }
+    if(mode === "read" && hasOffice && Office.context.requirements.isSetSupported("Mailbox","1.6")){
+      try{
+        Office.context.mailbox.displayNewMessageForm({
+          toRecipients: [DSR_TO],
+          subject: subjectLine(v),
+          htmlBody: htmlBody(v)
+        });
+        setStatus("DSR email opened - review and press Send.", true);
+        return;
+      }catch(e){ /* fall through to mailto */ }
+    }
+    var url = "mailto:" + DSR_TO +
+      "?subject=" + encodeURIComponent(subjectLine(v)) +
+      "&body=" + encodeURIComponent(plainBody(v));
+    window.open(url, "_blank") || (window.location.href = url);
+    document.getElementById("copyBtn").style.display = "block";
+    setStatus("If an email didn't open, use 'Copy DSR text' and paste into a new email to " + DSR_TO + ".", true);
+  }
+
+  document.getElementById("go").addEventListener("click", send);
+  document.getElementById("copyBtn").addEventListener("click", function(){
+    var v = vals();
+    copyText("To: " + DSR_TO + "\nSubject: " + subjectLine(v) + "\n\n" + plainBody(v),
+      "Copied. Paste into a new email to " + DSR_TO + ".");
+  });
+
+  // --- Detect context ---
+  if(typeof Office !== "undefined"){
+    Office.onReady(function(){
+      var item = Office.context && Office.context.mailbox && Office.context.mailbox.item;
+      if(!item){ mode = "standalone"; return; }
+      hasOffice = true;
+      if(typeof item.subject === "string"){
+        mode = "read";
+        sourceEmail = {
+          subject: item.subject || "(no subject)",
+          from: item.from ? (item.from.displayName + " <" + item.from.emailAddress + ">") : "unknown sender",
+          date: item.dateTimeCreated ? new Date(item.dateTimeCreated).toLocaleDateString() : ""
+        };
+        var c = document.getElementById("ctx");
+        c.style.display = "block";
+        c.textContent = "Creating DSR from client email: \"" + sourceEmail.subject + "\" - " + sourceEmail.from;
+        if(!document.getElementById("pname").value && item.subject){
+          document.getElementById("pname").value = item.subject.replace(/^(re:|fwd?:)\s*/i,"").trim().slice(0,120);
+          var h = document.getElementById("pnameHint");
+          h.textContent = "Auto-filled from the email subject - please verify.";
+          h.className = "hint found";
+        }
+        tryExtract(item);
+        validate();
+      } else {
+        mode = "compose";
+        document.getElementById("go").textContent = "Insert DSR into this email";
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
+                                                                                                                             

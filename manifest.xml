@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+
+  <!-- IMPORTANT: Replace every occurrence of https://ADDIN-HOST-URL with your real
+       HTTPS hosting URL (e.g. https://macsii.github.io/dsr-addin) before deploying. -->
+
+  <Id>2eb08cd3-a3b0-4345-bb21-70a9b06b8ee9</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Mac's II Agencies Ltd</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Design Services Request (DSR)"/>
+  <Description DefaultValue="Create a Design Services Request for the Mac's II lighting design team. Answers all required DSR questions and sends to lightingdsr@macsii.com."/>
+  <IconUrl DefaultValue="https://ADDIN-HOST-URL/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://ADDIN-HOST-URL/assets/icon-128.png"/>
+  <SupportUrl DefaultValue="https://macsii.com"/>
+
+  <AppDomains>
+    <AppDomain>https://ADDIN-HOST-URL</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.5"/>
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://ADDIN-HOST-URL/taskpane.html"/>
+        <RequestedHeight>450</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+    <Form xsi:type="ItemEdit">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://ADDIN-HOST-URL/taskpane.html"/>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteItem</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+  </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.5">
+        <bt:Set Name="Mailbox"/>
+      </bt:Sets>
+    </Requirements>
+
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <!-- Button on a received (client) email -->
+          <ExtensionPoint xsi:type="MessageReadCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="msgReadGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+
+          <!-- Button while composing an email -->
+          <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+            <OfficeTab id="TabDefault">
+              <Group id="msgComposeGroup">
+                <Label resid="GroupLabel"/>
+                <Control xsi:type="Button" id="msgComposeOpenPaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+
+        <!-- Outlook on iOS / Android: button on a received (client) email -->
+        <MobileFormFactor>
+          <ExtensionPoint xsi:type="MobileMessageReadCommandSurface">
+            <Group id="mobileMsgRead">
+              <Label resid="GroupLabel"/>
+              <Control xsi:type="MobileButton" id="mobileReadOpenPaneButton">
+                <Label resid="TaskpaneButton.Label"/>
+                <Icon xsi:type="bt:MobileIconList">
+                  <bt:Image size="25" scale="1" resid="Icon.25x25"/>
+                  <bt:Image size="25" scale="2" resid="Icon.48x48"/>
+                  <bt:Image size="25" scale="3" resid="Icon.80x80"/>
+                  <bt:Image size="32" scale="1" resid="Icon.32x32"/>
+                  <bt:Image size="32" scale="2" resid="Icon.64x64"/>
+                  <bt:Image size="32" scale="3" resid="Icon.80x80"/>
+                  <bt:Image size="48" scale="1" resid="Icon.48x48"/>
+                  <bt:Image size="48" scale="2" resid="Icon.80x80"/>
+                  <bt:Image size="48" scale="3" resid="Icon.128x128"/>
+                </Icon>
+                <Action xsi:type="ShowTaskpane">
+                  <SourceLocation resid="Taskpane.Url"/>
+                </Action>
+              </Control>
+            </Group>
+          </ExtensionPoint>
+        </MobileFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://ADDIN-HOST-URL/assets/icon-16.png"/>
+        <bt:Image id="Icon.25x25" DefaultValue="https://ADDIN-HOST-URL/assets/icon-25.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://ADDIN-HOST-URL/assets/icon-32.png"/>
+        <bt:Image id="Icon.48x48" DefaultValue="https://ADDIN-HOST-URL/assets/icon-48.png"/>
+        <bt:Image id="Icon.64x64" DefaultValue="https://ADDIN-HOST-URL/assets/icon-64.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://ADDIN-HOST-URL/assets/icon-80.png"/>
+        <bt:Image id="Icon.128x128" DefaultValue="https://ADDIN-HOST-URL/assets/icon-128.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://ADDIN-HOST-URL/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GroupLabel" DefaultValue="Mac's II Design"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Create DSR"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Create a Design Services Request and send it to the lighting design team."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
