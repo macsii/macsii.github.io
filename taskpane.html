@@ -101,8 +101,8 @@
   // Paste your Power Automate "HTTP request received" URL here to enable
   // one-tap submission that forwards the ORIGINAL client email + attachments.
   // Leave empty to fall back to opening a pre-filled email (no attachments).
-  var FLOW_URL = "";
-  var FLOW_KEY = "";  // optional shared secret, sent inside the JSON body as "key"
+  var FLOW_URL = "https://default71ec80b54d3a441b91f88f9819d265.26.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8dafcda8eb3b4f21a1b903dca47d1733/triggers/manual/paths/invoke?api-version=1";
+  var FLOW_KEY = "8f733390-938e-4857-9c7f-5b8b3107abd2";  // optional shared secret, sent inside the JSON body as "key"
   var SERVICES = ["Crossover","Layout","Submittal"];
   var COPILOT_PROMPT = "Look at this email and all of its attachments. Find the project number (often shown on a drawing title block as \"PROJECT NO:\") and the project name. Reply with just: Project Name and Project #.";
   var selected = {};            // service -> true
