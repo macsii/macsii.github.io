@@ -101,7 +101,7 @@
   // Paste your Power Automate "HTTP request received" URL here to enable
   // one-tap submission that forwards the ORIGINAL client email + attachments.
   // Leave empty to fall back to opening a pre-filled email (no attachments).
-  var FLOW_URL = "https://default71ec80b54d3a441b91f88f9819d265.26.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8dafcda8eb3b4f21a1b903dca47d1733/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=difiBBU_gKkAXTnxvlbI0q5dtHVZEyTRAmsYQxILn9E";
+  var FLOW_URL = "https://default71ec80b54d3a441b91f88f9819d265.26.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8dafcda8eb3b4f21a1b903dca47d1733/triggers/manual/paths/invoke?api-version=1";
   var FLOW_KEY = "8f733390-938e-4857-9c7f-5b8b3107abd2";  // optional shared secret, sent inside the JSON body as "key"
   var SERVICES = ["Crossover","Layout","Submittal"];
   var COPILOT_PROMPT = "Look at this email and all of its attachments. Find the project number (often shown on a drawing title block as \"PROJECT NO:\") and the project name. Reply with just: Project Name and Project #.";
@@ -274,12 +274,17 @@
   // prepending the DSR table. Requires FLOW_URL to be configured.
   function submitToFlow(v){
     var item = Office.context.mailbox.item;
+    // Convert the EWS item ID to a REST-format ID so Microsoft Graph's
+    // /messages/{id} endpoint accepts it directly (no translateExchangeIds
+    // needed in the flow). The REST ID is also URL-safe (- and _ instead of
+    // + and /), which avoids path-parsing errors in the forward call.
+    var restId = Office.context.mailbox.convertToRestId(item.itemId, Office.MailboxEnums.RestVersion.v2_0);
     var payload = {
       services: v.services, costSaving: v.costsaving,
       projectName: v.pname, projectNumber: v.pnum || "Not available",
       neededBy: fmtDate(v.needed), notes: v.notes,
       dsrHtml: htmlBody(v),
-      itemId: item.itemId, itemIdType: "ews",
+      itemId: restId, itemIdType: "rest",
       userEmail: Office.context.mailbox.userProfile.emailAddress,
       clientSubject: sourceEmail ? sourceEmail.subject : "",
       clientFrom: sourceEmail ? sourceEmail.from : "",
@@ -384,5 +389,4 @@
 </script>
 </body>
 </html>
-<!--test-->
                                                                                                                              
