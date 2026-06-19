@@ -99,6 +99,18 @@
   .empty-state svg { margin-bottom: 16px; opacity: 0.3; }
   .empty-state p { font-size: 15px; }
 
+  /* DASHBOARD */
+  .dash-greeting { font-size: 15px; color: var(--text-2); margin-bottom: 18px; }
+  .dash-greeting strong { color: var(--text); }
+  .dash-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .dash-stat { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .dash-stat-num { font-size: 28px; font-weight: 700; line-height: 1; }
+  .dash-stat-lbl { font-size: 12px; color: var(--text-2); margin-top: 6px; }
+  tr.dash-row { cursor: pointer; }
+  tr.dash-row:hover td { background: var(--brand-light); }
+  .dash-empty { text-align: center; padding: 32px 20px; color: var(--text-2); font-size: 14px; }
+  .due-overdue { color: var(--danger); font-weight: 600; }
+
   /* BUTTONS */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border-md); background: white; color: var(--text); font-size: 13px; font-family: var(--font); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
   .btn:hover { background: var(--surface-2); }
@@ -248,7 +260,8 @@
       <span class="topbar-name">Mac's II Agencies</span>
     </div>
     <div class="topbar-nav">
-      <button class="nav-btn active" onclick="showPage('list')">Employees</button>
+      <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="showPage('list')">Employees</button>
       <button class="nav-btn" onclick="showPage('templates')">Task templates</button>
     </div>
     <div class="topbar-spacer"></div>
@@ -256,8 +269,18 @@
     <button class="btn" style="color:white;border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);font-size:12px" onclick="logout()">Switch user</button>
   </div>
 
+  <!-- DASHBOARD PAGE -->
+  <div class="page active" id="page-dashboard">
+    <div class="list-header">
+      <h1 id="dashboard-title">Dashboard</h1>
+    </div>
+    <div class="list-body" id="dashboard-body">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+
   <!-- EMPLOYEE LIST PAGE -->
-  <div class="page active" id="page-list">
+  <div class="page" id="page-list">
     <div class="list-header">
       <h1 id="list-title">Onboarding employees</h1>
       <div class="list-tabs">
@@ -279,7 +302,7 @@
   <!-- DETAIL PAGE -->
   <div class="page" id="page-detail">
     <div class="detail-topbar">
-      <span class="detail-back" onclick="showPage('list')">← Back</span>
+      <span class="detail-back" onclick="showPage(lastPage)">← Back</span>
       <span class="detail-crumb">/</span>
       <span class="detail-name-row" id="detail-breadcrumb">Employee</span>
       <div class="detail-actions">
@@ -504,7 +527,9 @@ async function enterApp() {
   document.getElementById('topbar-user').textContent = 'Signed in as ' + currentUser;
   // Load the full people list so the assignment dropdowns are populated.
   try { users = await sbGet('users', 'order=name.asc&select=*'); } catch (e) { users = []; }
-  loadEmployees();
+  // Preload employees once so the dashboard can show which employee each task belongs to.
+  try { employees = await sbGet('employees', 'order=created_at.desc&select=*'); } catch (e) { employees = []; }
+  showPage('dashboard');
 }
 
 function logout() {
@@ -567,12 +592,95 @@ async function sbDelete(table, query) {
 }
 
 // ─── PAGES ────────────────────────────────────────────────────────────────────
+const NAV_INDEX = { dashboard: 0, list: 1, templates: 2 };
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  if (name === 'list') { document.querySelector('.nav-btn').classList.add('active'); loadEmployees(); }
-  if (name === 'templates') { document.querySelectorAll('.nav-btn')[1].classList.add('active'); loadTemplates(); }
+  const navs = document.querySelectorAll('.nav-btn');
+  if (NAV_INDEX[name] != null && navs[NAV_INDEX[name]]) navs[NAV_INDEX[name]].classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'list') loadEmployees();
+  if (name === 'templates') loadTemplates();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function employeeNameById(id) {
+  const e = employees.find(e => e.id === id);
+  return e ? e.name : 'Unknown employee';
+}
+
+async function loadDashboard() {
+  const body = document.getElementById('dashboard-body');
+  body.innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+
+  // Make sure employee names are available for the "Employee" column.
+  if (!employees.length) {
+    try { employees = await sbGet('employees', 'order=created_at.desc&select=*'); } catch (e) {}
+  }
+
+  const enc = encodeURIComponent(currentUser);
+  let outstanding = [], completed = [];
+
+  try {
+    outstanding = await sbGet('tasks', `assigned_to=eq.${enc}&status=neq.Completed&order=due_date.asc.nullslast`);
+  } catch (e) { console.error('dashboard outstanding failed', e); }
+
+  try {
+    // Newest completions first. Falls back gracefully if completed_at isn't present yet.
+    completed = await sbGet('tasks', `assigned_to=eq.${enc}&status=eq.Completed&order=completed_at.desc.nullslast,created_at.desc`);
+  } catch (e) {
+    try { completed = await sbGet('tasks', `assigned_to=eq.${enc}&status=eq.Completed&order=created_at.desc`); }
+    catch (e2) { console.error('dashboard completed failed', e2); }
+  }
+
+  renderDashboard(outstanding, completed);
+}
+
+function renderDashboard(outstanding, completed) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const fmtFull = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const fmtDue = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+  const outRows = outstanding.map(t => {
+    const overdue = t.due_date && new Date(t.due_date + 'T00:00:00') < today;
+    const badge = t.status === 'In Progress' ? 'badge-in-progress' : 'badge-not-started';
+    return `<tr class="dash-row" onclick="openEmployee('${t.employee_id}')">
+      <td style="font-weight:500">${escapeHtml(t.subject)}</td>
+      <td style="color:var(--text-2)">${escapeHtml(employeeNameById(t.employee_id))}</td>
+      <td class="${overdue ? 'due-overdue' : ''}" style="color:var(--text-2)">${fmtDue(t.due_date)}${overdue ? ' · overdue' : ''}</td>
+      <td><span class="badge ${badge}">${escapeHtml(t.status)}</span></td>
+    </tr>`;
+  }).join('');
+
+  const doneRows = completed.map(t => `<tr class="dash-row" onclick="openEmployee('${t.employee_id}')">
+      <td style="font-weight:500">${escapeHtml(t.subject)}</td>
+      <td style="color:var(--text-2)">${escapeHtml(employeeNameById(t.employee_id))}</td>
+      <td style="color:var(--text-2)">${fmtFull(t.completed_at || t.created_at)}</td>
+    </tr>`).join('');
+
+  document.getElementById('dashboard-body').innerHTML = `
+    <div class="dash-greeting">Welcome back, <strong>${escapeHtml(currentUser)}</strong>. Here's what's on your plate.</div>
+    <div class="dash-stat-row">
+      <div class="dash-stat"><div class="dash-stat-num" style="color:var(--amber)">${outstanding.length}</div><div class="dash-stat-lbl">Outstanding tasks</div></div>
+      <div class="dash-stat"><div class="dash-stat-num" style="color:#3B6D11">${completed.length}</div><div class="dash-stat-lbl">Completed by you</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">📌 Your outstanding tasks</div>
+      ${outstanding.length ? `<table>
+        <thead><tr><th>Task</th><th>Employee</th><th>Due date</th><th>Status</th></tr></thead>
+        <tbody>${outRows}</tbody>
+      </table>` : `<div class="dash-empty">🎉 You're all caught up — no outstanding tasks assigned to you.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-header">✅ Completed history</div>
+      ${completed.length ? `<table>
+        <thead><tr><th>Task</th><th>Employee</th><th>Completed</th></tr></thead>
+        <tbody>${doneRows}</tbody>
+      </table>` : `<div class="dash-empty">No completed tasks yet.</div>`}
+    </div>`;
 }
 
 // ─── EMPLOYEE LIST ────────────────────────────────────────────────────────────
@@ -643,10 +751,15 @@ async function renderEmployeeList() {
 }
 
 // ─── EMPLOYEE DETAIL ──────────────────────────────────────────────────────────
+let lastPage = 'list';
 async function openEmployee(id) {
   currentEmployee = employees.find(e => e.id === id);
+  if (!currentEmployee) { toast('Could not find that employee', true); return; }
+  // Remember which page we came from so "Back" returns there.
+  const active = document.querySelector('.page.active');
+  if (active && active.id !== 'page-detail') lastPage = active.id.replace('page-', '');
   document.getElementById('detail-breadcrumb').textContent = currentEmployee.name;
-  document.getElementById('page-list').classList.remove('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-detail').classList.add('active');
 
   // Reset to a clean loading state, then load each dataset independently so that
@@ -802,6 +915,10 @@ async function updateTaskStatus(id, select) {
   if (t) t.status = status;
   try {
     await sbPatch('tasks', `id=eq.${id}`, { status });
+    // Stamp/clear the completion date. Best-effort: if the completed_at column
+    // hasn't been added yet (update3.sql), the status change still succeeds.
+    const completed_at = status === 'Completed' ? new Date().toISOString() : null;
+    try { await sbPatch('tasks', `id=eq.${id}`, { completed_at }); if (t) t.completed_at = completed_at; } catch (e) {}
     updateProgressPanel();
     toast('Status updated');
   } catch(e) { toast('Failed to update', true); }
@@ -834,17 +951,27 @@ function openTaskDetail(id) {
 async function saveTaskDetail() {
   const subject = document.getElementById('task-detail-subject').value.trim();
   if (!subject) { toast('Task subject is required', true); return; }
+  const status = document.getElementById('task-detail-status').value;
+  const existing = tasks.find(t => t.id === editingTaskId);
   const body = {
     subject,
     assigned_to: document.getElementById('task-detail-assigned').value || null,
     due_date: document.getElementById('task-detail-due').value || null,
-    status: document.getElementById('task-detail-status').value,
+    status,
     notes: document.getElementById('task-detail-notes').value.trim() || null
   };
   try {
     const [updated] = await sbPatch('tasks', `id=eq.${editingTaskId}`, body);
     const idx = tasks.findIndex(t => t.id === editingTaskId);
     if (idx !== -1) tasks[idx] = updated;
+    // Keep completion date in sync (best-effort; needs the completed_at column).
+    const completed_at = status === 'Completed'
+      ? ((existing && existing.completed_at) || new Date().toISOString())
+      : null;
+    try {
+      await sbPatch('tasks', `id=eq.${editingTaskId}`, { completed_at });
+      if (idx !== -1) tasks[idx].completed_at = completed_at;
+    } catch (e) {}
     closeModal('task-modal');
     renderTasks();
     toast('Task updated');
