@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mac's II Agencies — HR Portal</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --brand: #003087;
+    --brand-light: #e6eef8;
+    --brand-hover: #00256b;
+    --surface: #ffffff;
+    --surface-2: #f7f8fa;
+    --surface-3: #f0f2f5;
+    --border: rgba(0,0,0,0.1);
+    --border-md: rgba(0,0,0,0.15);
+    --text: #1a1a2e;
+    --text-2: #5a6072;
+    --text-3: #9aa0b0;
+    --green: #3B6D11; --green-bg: #eaf3de; --green-text: #27500A;
+    --amber: #854F0B; --amber-bg: #faeeda; --amber-text: #633806;
+    --gray-bg: #f0f2f5; --gray-text: #444441;
+    --danger: #A32D2D; --danger-bg: #fcebeb;
+    --radius: 8px; --radius-lg: 12px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body { font-family: var(--font); background: var(--surface-3); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+  /* CONFIG SCREEN */
+  #config-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #001a4d 0%, #003087 100%);
+  }
+  .config-card {
+    background: white; border-radius: 16px; padding: 40px;
+    width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .config-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .config-logo-badge { background: var(--brand); color: white; font-weight: 700; font-size: 14px; padding: 6px 10px; border-radius: 6px; }
+  .config-logo-text { font-size: 18px; font-weight: 600; color: var(--text); }
+  .config-card h2 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .config-card p { color: var(--text-2); font-size: 13px; margin-bottom: 24px; }
+  .config-card label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .config-card input { width: 100%; border: 1.5px solid var(--border-md); border-radius: var(--radius); padding: 10px 12px; font-size: 14px; color: var(--text); margin-bottom: 16px; outline: none; font-family: var(--font); }
+  .config-card input:focus { border-color: var(--brand); }
+  .config-hint { font-size: 11px; color: var(--text-3); margin-top: -10px; margin-bottom: 16px; }
+  .config-hint a { color: var(--brand); }
+
+  /* TOPBAR */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    background: var(--brand); color: white;
+    display: flex; align-items: center; gap: 0; padding: 0 24px;
+    height: 52px; flex-shrink: 0; position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-logo { display: flex; align-items: center; gap: 10px; margin-right: 32px; }
+  .topbar-badge { background: rgba(255,255,255,0.2); font-weight: 700; font-size: 13px; padding: 4px 8px; border-radius: 5px; }
+  .topbar-name { font-size: 14px; font-weight: 500; }
+  .topbar-nav { display: flex; height: 100%; }
+  .nav-btn { color: rgba(255,255,255,0.75); font-size: 13px; padding: 0 16px; border: none; background: none; cursor: pointer; height: 100%; border-bottom: 3px solid transparent; transition: all 0.15s; white-space: nowrap; }
+  .nav-btn:hover { color: white; background: rgba(255,255,255,0.08); }
+  .nav-btn.active { color: white; border-bottom-color: white; }
+  .topbar-spacer { flex: 1; }
+
+  /* PAGE LAYOUT */
+  .page { display: none; flex: 1; }
+  .page.active { display: block; }
+
+  /* EMPLOYEE LIST PAGE */
+  .list-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 28px; display: flex; align-items: center; gap: 12px; }
+  .list-header h1 { font-size: 20px; font-weight: 600; flex: 1; }
+  .list-tabs { display: flex; background: var(--surface-3); border-radius: var(--radius); padding: 3px; gap: 2px; }
+  .list-tab { padding: 5px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; background: none; color: var(--text-2); font-family: var(--font); transition: all 0.15s; }
+  .list-tab.active { background: white; color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  .list-body { padding: 24px 28px; }
+  .search-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .search-row input { flex: 1; border: 1px solid var(--border-md); border-radius: var(--radius); padding: 8px 12px; font-size: 14px; font-family: var(--font); outline: none; background: white; color: var(--text); }
+  .search-row input:focus { border-color: var(--brand); }
+  .employee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .emp-card {
+    background: white; border-radius: var(--radius-lg); border: 1px solid var(--border);
+    padding: 18px; cursor: pointer; transition: all 0.15s;
+  }
+  .emp-card:hover { border-color: var(--brand); box-shadow: 0 4px 16px rgba(0,48,135,0.1); transform: translateY(-1px); }
+  .emp-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .emp-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--brand-light); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; color: var(--brand); flex-shrink: 0; }
+  .emp-card-name { font-size: 15px; font-weight: 600; }
+  .emp-card-title { font-size: 12px; color: var(--text-2); margin-top: 1px; }
+  .emp-card-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 12px; color: var(--text-2); border-top: 1px solid var(--border); padding-top: 12px; }
+  .emp-card-meta-item span { display: block; font-size: 11px; color: var(--text-3); }
+  .emp-progress { margin-top: 12px; }
+  .emp-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-2); margin-bottom: 4px; }
+  .progress-track { height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #639922; border-radius: 3px; transition: width 0.4s; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-2); }
+  .empty-state svg { margin-bottom: 16px; opacity: 0.3; }
+  .empty-state p { font-size: 15px; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border-md); background: white; color: var(--text); font-size: 13px; font-family: var(--font); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); }
+  .btn-primary:hover { background: var(--brand-hover); }
+  .btn-danger { color: var(--danger); border-color: rgba(163,45,45,0.25); }
+  .btn-danger:hover { background: var(--danger-bg); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-icon { padding: 6px; border-radius: 6px; }
+
+  /* DETAIL PAGE */
+  .detail-topbar { background: white; border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; gap: 10px; }
+  .detail-back { color: var(--text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .detail-back:hover { color: var(--brand); }
+  .detail-crumb { color: var(--text-3); font-size: 13px; }
+  .detail-name-row { font-size: 18px; font-weight: 600; margin-left: 4px; }
+  .detail-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  .detail-body { display: grid; grid-template-columns: 1fr 280px; gap: 0; min-height: calc(100vh - 110px); }
+  .detail-left { padding: 24px 24px 40px; }
+  .detail-right { background: white; border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; }
+
+  /* CARDS */
+  .card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; }
+  .card-header { padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); color: var(--text); background: var(--surface-2); }
+  .card-header-actions { margin-left: auto; display: flex; gap: 6px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .info-cell { padding: 10px 16px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .info-cell:nth-child(even) { border-right: none; }
+  .info-cell:nth-last-child(-n+2) { border-bottom: none; }
+  .info-cell.full { grid-column: 1 / -1; border-right: none; }
+  .info-label { font-size: 11px; color: var(--text-3); margin-bottom: 2px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .info-value { font-size: 13px; color: var(--text); }
+  .info-value a { color: var(--brand); text-decoration: none; }
+
+  /* TASKS TABLE */
+  .task-controls { padding: 10px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); background: white; }
+  .task-controls input, .task-controls select { border: 1px solid var(--border-md); border-radius: var(--radius); padding: 5px 10px; font-size: 12px; font-family: var(--font); color: var(--text); background: white; outline: none; }
+  .task-controls input { width: 180px; }
+  .task-controls input:focus, .task-controls select:focus { border-color: var(--brand); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 8px 12px; text-align: left; color: var(--text-2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr.task-row:hover td { background: var(--surface-2); }
+  .task-num { color: var(--text-3); width: 32px; }
+  .task-subject-link { color: var(--brand); cursor: pointer; font-weight: 500; }
+  .task-subject-link:hover { text-decoration: underline; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-completed { background: #C0DD97; color: #27500A; }
+  .badge-in-progress { background: #FAC775; color: #633806; }
+  .badge-not-started { background: #e4e6ea; color: #444; }
+  .badge-onboarding { background: var(--brand-light); color: var(--brand); }
+  .badge-offboarding { background: #faeeda; color: #633806; }
+  .status-select { border: 1px solid var(--border-md); border-radius: 20px; padding: 3px 8px; font-size: 11px; font-weight: 600; font-family: var(--font); cursor: pointer; outline: none; background: white; }
+  .status-select.completed { background: #C0DD97; color: #27500A; border-color: #a0c070; }
+  .status-select.in-progress { background: #FAC775; color: #633806; border-color: #e0a040; }
+  .status-select.not-started { background: #e4e6ea; color: #444; border-color: #ccc; }
+  .inline-input { border: 1px solid var(--border-md); border-radius: var(--radius); padding: 4px 8px; font-size: 13px; font-family: var(--font); color: var(--text); width: 100%; outline: none; background: white; }
+  .inline-input:focus { border-color: var(--brand); }
+  .add-task-row td { background: var(--brand-light); padding: 8px 12px; }
+
+  /* RIGHT PANEL */
+  .panel-section { margin-bottom: 24px; }
+  .panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 10px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { background: var(--surface-2); border-radius: var(--radius); padding: 12px; text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 700; }
+  .stat-lbl { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .prog-bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .prog-fill { height: 100%; background: #639922; border-radius: 3px; transition: width 0.4s; }
+
+  .file-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .file-item:hover { border-color: var(--brand); background: var(--brand-light); }
+  .file-icon { font-size: 18px; }
+  .file-name { font-weight: 500; flex: 1; }
+  .file-desc { font-size: 11px; color: var(--text-2); }
+
+  .chatter-item { padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; font-size: 12px; }
+  .chatter-meta { display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .chatter-author { font-weight: 600; }
+  .chatter-time { color: var(--text-3); font-size: 11px; }
+  .chatter-body { color: var(--text-2); line-height: 1.5; }
+  .chatter-compose { width: 100%; border: 1px solid var(--border-md); border-radius: var(--radius); padding: 8px 10px; font-size: 12px; font-family: var(--font); resize: vertical; outline: none; color: var(--text); background: white; margin-top: 6px; }
+  .chatter-compose:focus { border-color: var(--brand); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 20px; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-row input, .form-row select, .form-row textarea { width: 100%; border: 1.5px solid var(--border-md); border-radius: var(--radius); padding: 9px 12px; font-size: 14px; font-family: var(--font); color: var(--text); outline: none; background: white; }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--brand); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .template-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  .template-check input[type=checkbox] { width: auto; }
+
+  /* LOADING & TOAST */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--text-2); gap: 10px; }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--brand); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e; color: white; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="config-screen">
+  <div class="config-card">
+    <div class="config-logo">
+      <span class="config-logo-badge">MII</span>
+      <span class="config-logo-text">Mac's II Agencies — HR Portal</span>
+    </div>
+    <h2>Sign in</h2>
+    <p>Enter your username and password to continue.</p>
+
+    <div id="login-loading" class="loading" style="padding:24px"><div class="spinner"></div> Loading…</div>
+
+    <div id="login-form" style="display:none">
+      <label>Username</label>
+      <input type="text" id="login-username" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;margin-top:4px" onclick="doLogin()">Sign in →</button>
+    </div>
+
+    <div id="login-config-error" style="display:none">
+      <p style="font-size:13px;color:var(--danger);line-height:1.6">
+        This portal isn't connected to a database yet. The person who set this up needs to open
+        <code>index.html</code> and paste the Supabase URL and key into the two lines marked
+        <strong>CONFIGURE ME</strong> near the top of the script.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <span class="topbar-badge">MII</span>
+      <span class="topbar-name">Mac's II Agencies</span>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-btn active" onclick="showPage('list')">Employees</button>
+      <button class="nav-btn" onclick="showPage('templates')">Task templates</button>
+    </div>
+    <div class="topbar-spacer"></div>
+    <span id="topbar-user" style="color:rgba(255,255,255,0.85);font-size:12px;margin-right:12px"></span>
+    <button class="btn" style="color:white;border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);font-size:12px" onclick="logout()">Switch user</button>
+  </div>
+
+  <!-- EMPLOYEE LIST PAGE -->
+  <div class="page active" id="page-list">
+    <div class="list-header">
+      <h1 id="list-title">Onboarding employees</h1>
+      <div class="list-tabs">
+        <button class="list-tab active" onclick="setType('onboarding')">Onboarding</button>
+        <button class="list-tab" onclick="setType('offboarding')">Offboarding</button>
+      </div>
+      <button class="btn btn-primary" onclick="openAddEmployee()">+ Add employee</button>
+    </div>
+    <div class="list-body">
+      <div class="search-row">
+        <input type="text" placeholder="Search employees..." id="emp-search" oninput="renderEmployeeList()">
+      </div>
+      <div class="employee-grid" id="employee-grid">
+        <div class="loading"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL PAGE -->
+  <div class="page" id="page-detail">
+    <div class="detail-topbar">
+      <span class="detail-back" onclick="showPage('list')">← Back</span>
+      <span class="detail-crumb">/</span>
+      <span class="detail-name-row" id="detail-breadcrumb">Employee</span>
+      <div class="detail-actions">
+        <button class="btn btn-sm" onclick="openEditEmployee()">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmployee()">Delete</button>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-left" id="detail-left">
+        <div class="loading"><div class="spinner"></div> Loading…</div>
+      </div>
+      <div class="detail-right" id="detail-right"></div>
+    </div>
+  </div>
+
+  <!-- TEMPLATES PAGE -->
+  <div class="page" id="page-templates">
+    <div class="list-header">
+      <h1>Task templates</h1>
+      <div class="list-tabs">
+        <button class="list-tab active" onclick="setTemplateType('onboarding')">Onboarding</button>
+        <button class="list-tab" onclick="setTemplateType('offboarding')">Offboarding</button>
+      </div>
+      <button class="btn btn-primary" onclick="openAddTemplate()">+ Add template</button>
+    </div>
+    <div class="list-body">
+      <div class="card">
+        <div class="card-header">
+          <span id="template-type-label">Onboarding task templates</span>
+          <span style="font-size:11px;color:var(--text-2);margin-left:8px;font-weight:400">Applied automatically when adding a new employee</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Task subject</th>
+              <th>Default assigned to</th>
+              <th>Days from start</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="template-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="employee-modal">
+  <div class="modal">
+    <h2 id="emp-modal-title">Add employee</h2>
+    <p id="emp-modal-sub">Fill in the employee's details. Tasks will be auto-created from your templates.</p>
+    <div class="form-grid">
+      <div class="form-row"><label>Full name *</label><input id="emp-name" type="text" placeholder="Jesse Walchuk"></div>
+      <div class="form-row"><label>Title</label><input id="emp-title" type="text" placeholder="Account Manager"></div>
+      <div class="form-row"><label>Department</label><input id="emp-dept" type="text" placeholder="MII Account Based Sales"></div>
+      <div class="form-row"><label>Location</label><input id="emp-loc" type="text" placeholder="Coquitlam - Head Office"></div>
+      <div class="form-row"><label>Reports to</label><input id="emp-reports" type="text" placeholder="Andrew Wallace"></div>
+      <div class="form-row"><label>Profile</label><input id="emp-profile" type="text" placeholder="D&C Sales"></div>
+      <div class="form-row"><label>Start date</label><input id="emp-start" type="date"></div>
+      <div class="form-row"><label>Type</label>
+        <select id="emp-type">
+          <option value="onboarding">Onboarding</option>
+          <option value="offboarding">Offboarding</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>Notes</label><textarea id="emp-notes" rows="2" placeholder="Additional notes..."></textarea></div>
+    <div class="template-check" id="template-check-row">
+      <input type="checkbox" id="apply-templates" checked>
+      <label for="apply-templates">Auto-create tasks from templates</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('employee-modal')">Cancel</button>
+      <button class="btn btn-primary" id="emp-save-btn" onclick="saveEmployee()">Add employee</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="template-modal">
+  <div class="modal">
+    <h2>Add task template</h2>
+    <p>This task will be auto-created for all new employees of this type.</p>
+    <div class="form-row"><label>Task subject *</label><input id="tmpl-subject" type="text" placeholder="e.g. Create Email Address"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>Default assigned to</label><select id="tmpl-assigned"></select></div>
+      <div class="form-row"><label>Days from start date</label><input id="tmpl-days" type="number" placeholder="0" value="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('template-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">Add template</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="task-modal">
+  <div class="modal">
+    <h2>Task details</h2>
+    <p>View or update this task.</p>
+    <div class="form-row"><label>Task subject *</label><input id="task-detail-subject" type="text" placeholder="Task subject"></div>
+    <div class="form-grid">
+      <div class="form-row"><label>Assigned to</label>
+        <select id="task-detail-assigned"></select>
+      </div>
+      <div class="form-row"><label>Due date</label><input id="task-detail-due" type="date"></div>
+      <div class="form-row"><label>Status</label>
+        <select id="task-detail-status">
+          <option>Not Started</option><option>In Progress</option><option>Completed</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Created</label><input id="task-detail-created" type="text" disabled style="background:var(--surface-2);color:var(--text-3)"></div>
+    </div>
+    <div class="form-row"><label>Details / notes</label><textarea id="task-detail-notes" rows="4" placeholder="Add any extra detail about this task…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" style="margin-right:auto" onclick="deleteTaskFromModal()">Delete task</button>
+      <button class="btn" onclick="closeModal('task-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTaskDetail()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- STYLED CONFIRM DIALOG -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="max-width:420px">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-message" style="margin-bottom:0"></p>
+    <div class="modal-actions">
+      <button class="btn" id="confirm-cancel-btn" onclick="resolveConfirm(false)">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn" onclick="resolveConfirm(true)">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FILE MODAL -->
+<div class="modal-overlay" id="file-modal">
+  <div class="modal" style="max-width:460px">
+    <h2>Upload file</h2>
+    <p>Attach a document to this employee's record.</p>
+    <div class="form-row"><label>File *</label><input id="file-input" type="file"></div>
+    <div class="form-row"><label>Description (optional)</label><input id="file-desc" type="text" placeholder="e.g. Signed contract"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('file-modal')">Cancel</button>
+      <button class="btn btn-primary" id="file-upload-btn" onclick="uploadFile()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │  CONFIGURE ME — paste your Supabase details between the quotes below,     │
+// │  then save the file. You only ever do this once.                          │
+// │  (Find both at: Supabase → your project → Settings → API)                 │
+// └─────────────────────────────────────────────────────────────────────────┘
+const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co/";   // ← CONFIGURE ME
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzY2pkcnFobnV5bmRtYmhob25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjk3NDUsImV4cCI6MjA5NzIwNTc0NX0.AWCrmcksEi5ljyN8B0m-Adnn5WULVeXIOCKdBX77teQ";    // ← CONFIGURE ME
+
+let currentType = 'onboarding';
+let currentTemplateType = 'onboarding';
+let employees = [];
+let users = [];
+let currentUser = '';
+let currentEmployee = null;
+let tasks = [], chatter = [], files = [];
+let editingEmployeeId = null;
+let editingTaskId = null;
+
+// ─── LOGIN / USERS ────────────────────────────────────────────────────────────
+function credentialsConfigured() {
+  return SB_URL && SB_KEY && !SB_URL.includes('YOUR-PROJECT') && !SB_KEY.includes('PASTE-YOUR');
+}
+
+async function initLogin() {
+  if (!credentialsConfigured()) {
+    document.getElementById('login-loading').style.display = 'none';
+    document.getElementById('login-config-error').style.display = 'block';
+    return;
+  }
+  document.getElementById('login-loading').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
+
+  // Auto-restore last session on this device
+  const saved = localStorage.getItem('mii_user');
+  if (saved) {
+    currentUser = saved;
+    enterApp();
+  } else {
+    document.getElementById('login-username').focus();
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!username || !password) { toast('Enter your username and password', true); return; }
+
+  let rows;
+  try {
+    // Look up the account by username only — the password is never put in the URL.
+    rows = await sbGet('users', `username=eq.${encodeURIComponent(username)}&select=*`);
+  } catch (e) {
+    toast('Could not reach the database', true);
+    return;
+  }
+  const u = rows && rows[0];
+  if (!u || !u.password || u.password !== password) {
+    toast('Incorrect username or password', true);
+    return;
+  }
+  currentUser = u.name || u.username;
+  localStorage.setItem('mii_user', currentUser);
+  document.getElementById('login-password').value = '';
+  enterApp();
+}
+
+async function enterApp() {
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('topbar-user').textContent = 'Signed in as ' + currentUser;
+  // Load the full people list so the assignment dropdowns are populated.
+  try { users = await sbGet('users', 'order=name.asc&select=*'); } catch (e) { users = []; }
+  loadEmployees();
+}
+
+function logout() {
+  localStorage.removeItem('mii_user');
+  location.reload();
+}
+
+// Build <option> list of users for an "assigned to" dropdown.
+// Always includes an Unassigned option, and preserves any existing free-text value.
+function assigneeOptions(selectedValue) {
+  const val = selectedValue || '';
+  let opts = `<option value="">Unassigned</option>`;
+  let matched = (val === '');
+  opts += users.map(u => {
+    const sel = (u.name === val) ? ' selected' : '';
+    if (sel) matched = true;
+    return `<option value="${escapeHtml(u.name)}"${sel}>${escapeHtml(u.name)}</option>`;
+  }).join('');
+  // If the saved value isn't a known user (e.g. an old "IT"/"HR" value), keep it as an option
+  if (!matched && val) {
+    opts += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
+  }
+  return opts;
+}
+
+// ─── API HELPERS ──────────────────────────────────────────────────────────────
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': `Bearer ${SB_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    },
+    ...opts
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function sbGet(table, query = '') {
+  return sbFetch(`${table}?${query}`, { method: 'GET' });
+}
+
+async function sbPost(table, body) {
+  return sbFetch(table, { method: 'POST', body: JSON.stringify(body) });
+}
+
+async function sbPatch(table, query, body) {
+  return sbFetch(`${table}?${query}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+async function sbDelete(table, query) {
+  return sbFetch(`${table}?${query}`, { method: 'DELETE', prefer: 'return=minimal' });
+}
+
+// ─── PAGES ────────────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (name === 'list') { document.querySelector('.nav-btn').classList.add('active'); loadEmployees(); }
+  if (name === 'templates') { document.querySelectorAll('.nav-btn')[1].classList.add('active'); loadTemplates(); }
+}
+
+// ─── EMPLOYEE LIST ────────────────────────────────────────────────────────────
+function setType(t) {
+  currentType = t;
+  document.querySelectorAll('#page-list .list-tab').forEach((b, i) => b.classList.toggle('active', (i === 0 && t === 'onboarding') || (i === 1 && t === 'offboarding')));
+  document.getElementById('list-title').textContent = t === 'onboarding' ? 'Onboarding employees' : 'Offboarding employees';
+  renderEmployeeList();
+}
+
+async function loadEmployees() {
+  document.getElementById('employee-grid').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    employees = await sbGet('employees', 'order=created_at.desc&select=*');
+  } catch(e) {
+    document.getElementById('employee-grid').innerHTML = `<div class="loading" style="color:red">⚠ Could not connect. Check your Supabase URL and key, and make sure schema.sql has been run.</div>`;
+    return;
+  }
+  renderEmployeeList();
+}
+
+async function renderEmployeeList() {
+  const search = (document.getElementById('emp-search')?.value || '').toLowerCase();
+  const filtered = employees.filter(e => e.type === currentType && (!search || e.name.toLowerCase().includes(search) || (e.title||'').toLowerCase().includes(search) || (e.department||'').toLowerCase().includes(search)));
+  const grid = document.getElementById('employee-grid');
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><p>No ${currentType} employees found.</p><br><button class="btn btn-primary" onclick="openAddEmployee()">+ Add first employee</button></div>`;
+    return;
+  }
+  // Load task counts
+  const ids = filtered.map(e => `"${e.id}"`).join(',');
+  let taskCounts = {};
+  try {
+    const taskData = await sbGet('tasks', `employee_id=in.(${ids})&select=employee_id,status`);
+    taskData.forEach(t => {
+      if (!taskCounts[t.employee_id]) taskCounts[t.employee_id] = { total: 0, done: 0 };
+      taskCounts[t.employee_id].total++;
+      if (t.status === 'Completed') taskCounts[t.employee_id].done++;
+    });
+  } catch(e) {}
+
+  grid.innerHTML = filtered.map(emp => {
+    const initials = emp.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const tc = taskCounts[emp.id] || { total: 0, done: 0 };
+    const pct = tc.total ? Math.round(tc.done / tc.total * 100) : 0;
+    const startDate = emp.start_date ? new Date(emp.start_date + 'T00:00:00').toLocaleDateString('en-CA') : '—';
+    return `<div class="emp-card" onclick="openEmployee('${emp.id}')">
+      <div class="emp-card-top">
+        <div class="emp-avatar">${initials}</div>
+        <div>
+          <div class="emp-card-name">${emp.name}</div>
+          <div class="emp-card-title">${emp.title || '—'}</div>
+        </div>
+        <span class="badge badge-${emp.type}" style="margin-left:auto;font-size:10px">${emp.type}</span>
+      </div>
+      <div class="emp-card-meta">
+        <div class="emp-card-meta-item"><span>Department</span>${emp.department || '—'}</div>
+        <div class="emp-card-meta-item"><span>Start date</span>${startDate}</div>
+        <div class="emp-card-meta-item"><span>Location</span>${emp.location || '—'}</div>
+        <div class="emp-card-meta-item"><span>Reports to</span>${emp.reports_to || '—'}</div>
+      </div>
+      <div class="emp-progress">
+        <div class="emp-progress-label"><span>Task progress</span><span>${tc.done}/${tc.total} complete</span></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── EMPLOYEE DETAIL ──────────────────────────────────────────────────────────
+async function openEmployee(id) {
+  currentEmployee = employees.find(e => e.id === id);
+  document.getElementById('detail-breadcrumb').textContent = currentEmployee.name;
+  document.getElementById('page-list').classList.remove('active');
+  document.getElementById('page-detail').classList.add('active');
+
+  // Reset to a clean loading state, then load each dataset independently so that
+  // a failure in one (e.g. files) can never blank out the others (e.g. chatter).
+  tasks = []; chatter = []; files = [];
+  document.getElementById('detail-left').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  document.getElementById('detail-right').innerHTML = '';
+
+  await Promise.allSettled([loadTasks(), loadChatter(), loadFiles()]);
+
+  renderDetailInfo();   // builds the info + task card, then renders tasks
+  renderDetailRight();  // progress + files + chatter
+}
+
+function renderDetailInfo() {
+  const e = currentEmployee;
+  const startDate = e.start_date ? new Date(e.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) : '—';
+  document.getElementById('detail-left').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="emp-avatar" style="width:52px;height:52px;font-size:16px">${e.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div>
+        <div style="font-size:21px;font-weight:700">${e.name}</div>
+        <div style="font-size:13px;color:var(--text-2)">${e.title || ''} · ${e.location || ''}</div>
+      </div>
+      <span class="badge badge-${e.type}" style="margin-left:8px">${e.type}</span>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">📋 Information</div>
+      <div class="info-grid">
+        <div class="info-cell"><div class="info-label">Name</div><div class="info-value">${e.name}</div></div>
+        <div class="info-cell"><div class="info-label">Title</div><div class="info-value">${e.title || '—'}</div></div>
+        <div class="info-cell"><div class="info-label">Start date</div><div class="info-value">${startDate}</div></div>
+        <div class="info-cell"><div class="info-label">Department</div><div class="info-value">${e.department || '—'}</div></div>
+        <div class="info-cell"><div class="info-label">Reports to</div><div class="info-value">${e.reports_to || '—'}</div></div>
+        <div class="info-cell"><div class="info-label">Profile</div><div class="info-value">${e.profile || '—'}</div></div>
+        <div class="info-cell"><div class="info-label">Location</div><div class="info-value">${e.location || '—'}</div></div>
+        <div class="info-cell"><div class="info-label">Notes</div><div class="info-value">${e.notes || '—'}</div></div>
+      </div>
+    </div>
+    <div class="card" id="task-card">
+      <div class="card-header">✅ ${currentEmployee.type === 'onboarding' ? 'Onboarding' : 'Offboarding'} tasks
+        <div class="card-header-actions">
+          <button class="btn btn-sm btn-primary" onclick="showAddTaskRow()">+ Add task</button>
+        </div>
+      </div>
+      <div class="task-controls">
+        <input type="text" id="task-search" placeholder="Search tasks…" oninput="renderTasks()">
+        <select id="status-filter" onchange="renderTasks()">
+          <option value="">All statuses</option>
+          <option value="Completed">Completed</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Not Started">Not Started</option>
+        </select>
+        <select id="assignee-filter" onchange="renderTasks()">
+          <option value="">All assignees</option>
+          <option value="__me__">Assigned to me</option>
+          ${users.map(u => `<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Subject</th><th>Assigned to</th><th>Due date</th><th>Status</th><th></th></tr></thead>
+        <tbody id="task-body"></tbody>
+      </table>
+    </div>`;
+  renderTasks();
+}
+
+async function loadTasks() {
+  try {
+    tasks = await sbGet('tasks', `employee_id=eq.${currentEmployee.id}&order=sort_order.asc,created_at.asc`);
+  } catch (e) { tasks = []; console.error('loadTasks failed', e); }
+}
+
+function renderTasks() {
+  const search = (document.getElementById('task-search')?.value || '').toLowerCase();
+  const filter = document.getElementById('status-filter')?.value || '';
+  const assigneeFilter = document.getElementById('assignee-filter')?.value || '';
+  const filtered = tasks.filter(t =>
+    (!filter || t.status === filter) &&
+    (!assigneeFilter || (assigneeFilter === '__me__' ? t.assigned_to === currentUser : t.assigned_to === assigneeFilter)) &&
+    (!search || t.subject.toLowerCase().includes(search) || (t.assigned_to||'').toLowerCase().includes(search))
+  );
+  const tbody = document.getElementById('task-body');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map((t, i) => {
+    const due = t.due_date ? new Date(t.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : '—';
+    const sc = t.status === 'Completed' ? 'completed' : t.status === 'In Progress' ? 'in-progress' : 'not-started';
+    const mine = t.assigned_to && t.assigned_to === currentUser;
+    const assignedLabel = t.assigned_to ? escapeHtml(t.assigned_to) + (mine ? ' <span style="color:var(--brand);font-weight:600">(you)</span>' : '') : '—';
+    return `<tr class="task-row">
+      <td class="task-num">${i + 1}</td>
+      <td><span class="task-subject-link" onclick="openTaskDetail('${t.id}')">${escapeHtml(t.subject)}</span></td>
+      <td style="color:var(--text-2)">${assignedLabel}</td>
+      <td style="color:var(--text-2)">${due}</td>
+      <td>
+        <select class="status-select ${sc}" onchange="updateTaskStatus('${t.id}', this)">
+          <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
+          <option ${t.status==='In Progress'?'selected':''}>In Progress</option>
+          <option ${t.status==='Completed'?'selected':''}>Completed</option>
+        </select>
+      </td>
+      <td><button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask('${t.id}')" title="Delete task">✕</button></td>
+    </tr>`;
+  }).join('');
+  if (!filtered.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-2)">No tasks found.</td></tr>';
+  updateProgressPanel();
+}
+
+function showAddTaskRow() {
+  const tbody = document.getElementById('task-body');
+  const existing = document.getElementById('add-task-tr');
+  if (existing) { existing.remove(); return; }
+  const tr = document.createElement('tr');
+  tr.id = 'add-task-tr';
+  tr.className = 'add-task-row';
+  tr.innerHTML = `
+    <td></td>
+    <td><input class="inline-input" id="new-task-subject" placeholder="Task subject" style="min-width:160px"></td>
+    <td><select class="inline-input" id="new-task-assigned" style="min-width:120px">${assigneeOptions('')}</select></td>
+    <td><input class="inline-input" id="new-task-due" type="date" style="min-width:120px"></td>
+    <td><select class="inline-input" id="new-task-status" style="min-width:100px">
+      <option>Not Started</option><option>In Progress</option><option>Completed</option>
+    </select></td>
+    <td><button class="btn btn-sm btn-primary" onclick="saveNewTask()">Save</button></td>`;
+  tbody.insertBefore(tr, tbody.firstChild);
+  document.getElementById('new-task-subject').focus();
+}
+
+async function saveNewTask() {
+  const subject = document.getElementById('new-task-subject').value.trim();
+  if (!subject) { toast('Task subject is required', true); return; }
+  const body = {
+    employee_id: currentEmployee.id,
+    subject,
+    assigned_to: document.getElementById('new-task-assigned').value.trim() || null,
+    due_date: document.getElementById('new-task-due').value || null,
+    status: document.getElementById('new-task-status').value,
+    sort_order: tasks.length
+  };
+  try {
+    const [saved] = await sbPost('tasks', body);
+    tasks.push(saved);
+    document.getElementById('add-task-tr')?.remove();
+    renderTasks();
+    toast('Task added');
+  } catch(e) { toast('Failed to save task', true); }
+}
+
+async function updateTaskStatus(id, select) {
+  const status = select.value;
+  select.className = 'status-select ' + (status === 'Completed' ? 'completed' : status === 'In Progress' ? 'in-progress' : 'not-started');
+  const t = tasks.find(t => t.id === id);
+  if (t) t.status = status;
+  try {
+    await sbPatch('tasks', `id=eq.${id}`, { status });
+    updateProgressPanel();
+    toast('Status updated');
+  } catch(e) { toast('Failed to update', true); }
+}
+
+async function deleteTask(id) {
+  if (!(await uiConfirm('Delete this task? This cannot be undone.'))) return;
+  await sbDelete('tasks', `id=eq.${id}`);
+  tasks = tasks.filter(t => t.id !== id);
+  renderTasks();
+  toast('Task deleted');
+}
+
+// ─── TASK DETAIL MODAL ────────────────────────────────────────────────────────
+function openTaskDetail(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('task-detail-subject').value = t.subject || '';
+  document.getElementById('task-detail-assigned').innerHTML = assigneeOptions(t.assigned_to || '');
+  document.getElementById('task-detail-due').value = t.due_date || '';
+  document.getElementById('task-detail-status').value = t.status || 'Not Started';
+  document.getElementById('task-detail-notes').value = t.notes || '';
+  document.getElementById('task-detail-created').value = t.created_at
+    ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : '—';
+  document.getElementById('task-modal').classList.add('open');
+}
+
+async function saveTaskDetail() {
+  const subject = document.getElementById('task-detail-subject').value.trim();
+  if (!subject) { toast('Task subject is required', true); return; }
+  const body = {
+    subject,
+    assigned_to: document.getElementById('task-detail-assigned').value || null,
+    due_date: document.getElementById('task-detail-due').value || null,
+    status: document.getElementById('task-detail-status').value,
+    notes: document.getElementById('task-detail-notes').value.trim() || null
+  };
+  try {
+    const [updated] = await sbPatch('tasks', `id=eq.${editingTaskId}`, body);
+    const idx = tasks.findIndex(t => t.id === editingTaskId);
+    if (idx !== -1) tasks[idx] = updated;
+    closeModal('task-modal');
+    renderTasks();
+    toast('Task updated');
+  } catch (e) { toast('Failed to save: ' + e.message, true); }
+}
+
+async function deleteTaskFromModal() {
+  if (!editingTaskId) return;
+  if (!(await uiConfirm('Delete this task? This cannot be undone.'))) return;
+  try {
+    await sbDelete('tasks', `id=eq.${editingTaskId}`);
+    tasks = tasks.filter(t => t.id !== editingTaskId);
+    closeModal('task-modal');
+    renderTasks();
+    toast('Task deleted');
+  } catch (e) { toast('Failed to delete: ' + e.message, true); }
+}
+
+// ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
+async function loadChatter() {
+  try {
+    chatter = await sbGet('chatter', `employee_id=eq.${currentEmployee.id}&order=created_at.asc`);
+  } catch (e) { chatter = []; console.error('loadChatter failed', e); }
+}
+
+async function loadFiles() {
+  try {
+    files = await sbGet('files', `employee_id=eq.${currentEmployee.id}&order=created_at.asc`);
+  } catch (e) { files = []; console.error('loadFiles failed', e); }
+}
+
+function renderDetailRight() {
+  const panel = document.getElementById('detail-right');
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'Completed').length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+
+  panel.innerHTML = `
+    <div class="panel-section">
+      <div class="panel-title">Progress</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-lbl">Total tasks</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#3B6D11" id="panel-done">${done}</div><div class="stat-lbl">Completed</div></div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="panel-prog" style="width:${pct}%"></div></div>
+      <div style="text-align:right;font-size:11px;color:var(--text-2);margin-top:4px" id="panel-pct">${pct}% complete</div>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Files</div>
+      <div id="files-list">${files.map(f => `<div class="file-item" onclick="openFile('${f.id}')" title="Open file">
+        <span class="file-icon">📄</span>
+        <div style="flex:1;min-width:0;overflow:hidden">
+          <div class="file-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(f.name)}</div>
+          <div class="file-desc">${escapeHtml(f.description || '')}</div>
+        </div>
+        <button class="btn btn-sm btn-danger btn-icon" onclick="event.stopPropagation();deleteFile('${f.id}')" title="Delete file">✕</button>
+      </div>`).join('') || '<div style="font-size:12px;color:var(--text-3)">No files yet.</div>'}</div>
+      <button class="btn btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="openFileModal()">↑ Upload file</button>
+    </div>
+    <div class="panel-section">
+      <div class="panel-title">Chatter</div>
+      <div id="chatter-list">${chatter.map(c => `<div class="chatter-item"><div class="chatter-meta"><span class="chatter-author">${escapeHtml(c.author)}</span><span class="chatter-time">${new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span></div><div class="chatter-body">${escapeHtml(c.body)}</div></div>`).join('') || '<div style="font-size:12px;color:var(--text-3)">No posts yet.</div>'}</div>
+      <textarea class="chatter-compose" id="chatter-input" rows="2" placeholder="Write a comment…"></textarea>
+      <button class="btn btn-primary btn-sm" style="width:100%;margin-top:6px;justify-content:center" onclick="postChatter()">Post</button>
+    </div>`;
+}
+
+function updateProgressPanel() {
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'Completed').length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const d = document.getElementById('panel-done');
+  const p = document.getElementById('panel-prog');
+  const pctEl = document.getElementById('panel-pct');
+  if (d) d.textContent = done;
+  if (p) p.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '% complete';
+}
+
+async function postChatter() {
+  const body = document.getElementById('chatter-input').value.trim();
+  if (!body) return;
+  const author = currentUser || 'HR';
+  try {
+    const [post] = await sbPost('chatter', { employee_id: currentEmployee.id, author, body });
+    chatter.push(post);
+    document.getElementById('chatter-input').value = '';
+    renderDetailRight();
+    toast('Comment posted');
+  } catch(e) { toast('Failed to post: ' + e.message, true); }
+}
+
+// ─── FILES (Supabase Storage) ─────────────────────────────────────────────────
+const STORAGE_BUCKET = 'employee-files';
+
+function openFileModal() {
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-desc').value = '';
+  document.getElementById('file-modal').classList.add('open');
+}
+
+async function uploadFile() {
+  const input = document.getElementById('file-input');
+  const file = input.files && input.files[0];
+  if (!file) { toast('Choose a file first', true); return; }
+  if (file.size > 50 * 1024 * 1024) { toast('File is too large (50MB max)', true); return; }
+
+  const btn = document.getElementById('file-upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+
+  // Keep the original name in the table; store under a unique, safe path.
+  const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+  const path = `${currentEmployee.id}/${Date.now()}_${safeName}`;
+
+  try {
+    const res = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURI(path)}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+        'x-upsert': 'true',
+        'Content-Type': file.type || 'application/octet-stream'
+      },
+      body: file
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    const description = document.getElementById('file-desc').value.trim() || null;
+    const [f] = await sbPost('files', {
+      employee_id: currentEmployee.id,
+      name: file.name,
+      description,
+      storage_path: path
+    });
+    files.push(f);
+    closeModal('file-modal');
+    renderDetailRight();
+    toast('File uploaded');
+  } catch (e) {
+    toast('Upload failed: ' + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload';
+  }
+}
+
+function openFile(id) {
+  const f = files.find(f => f.id === id);
+  if (!f) return;
+  if (!f.storage_path) { toast('No file attached to this record', true); return; }
+  // Open the tab synchronously (inside the click) so popup blockers don't fire,
+  // then point it at a short-lived signed URL once we have one.
+  const win = window.open('', '_blank');
+  (async () => {
+    try {
+      const res = await fetch(`${SB_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${encodeURI(f.storage_path)}`, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresIn: 3600 })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { signedURL } = await res.json();
+      const url = `${SB_URL}/storage/v1${signedURL}`;
+      if (win) win.location = url; else window.open(url, '_blank');
+    } catch (e) {
+      if (win) win.close();
+      toast('Could not open file: ' + e.message, true);
+    }
+  })();
+}
+
+async function deleteFile(id) {
+  const f = files.find(f => f.id === id);
+  if (!f) return;
+  if (!(await uiConfirm(`Delete "${f.name}"? This cannot be undone.`, { title: 'Delete file?' }))) return;
+  try {
+    if (f.storage_path) {
+      await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURI(f.storage_path)}`, {
+        method: 'DELETE',
+        headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+      });
+    }
+    await sbDelete('files', `id=eq.${id}`);
+    files = files.filter(x => x.id !== id);
+    renderDetailRight();
+    toast('File deleted');
+  } catch (e) { toast('Failed to delete: ' + e.message, true); }
+}
+
+// ─── ADD / EDIT EMPLOYEE ──────────────────────────────────────────────────────
+function openAddEmployee() {
+  editingEmployeeId = null;
+  document.getElementById('emp-modal-title').textContent = 'Add employee';
+  document.getElementById('emp-modal-sub').textContent = 'Tasks will be auto-created from your templates.';
+  document.getElementById('emp-save-btn').textContent = 'Add employee';
+  document.getElementById('template-check-row').style.display = 'flex';
+  ['emp-name','emp-title','emp-dept','emp-loc','emp-reports','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('emp-start').value = '';
+  document.getElementById('emp-type').value = currentType;
+  document.getElementById('apply-templates').checked = true;
+  document.getElementById('employee-modal').classList.add('open');
+}
+
+function openEditEmployee() {
+  const e = currentEmployee;
+  editingEmployeeId = e.id;
+  document.getElementById('emp-modal-title').textContent = 'Edit employee';
+  document.getElementById('emp-modal-sub').textContent = 'Update employee details.';
+  document.getElementById('emp-save-btn').textContent = 'Save changes';
+  document.getElementById('template-check-row').style.display = 'none';
+  document.getElementById('emp-name').value = e.name || '';
+  document.getElementById('emp-title').value = e.title || '';
+  document.getElementById('emp-dept').value = e.department || '';
+  document.getElementById('emp-loc').value = e.location || '';
+  document.getElementById('emp-reports').value = e.reports_to || '';
+  document.getElementById('emp-profile').value = e.profile || '';
+  document.getElementById('emp-notes').value = e.notes || '';
+  document.getElementById('emp-start').value = e.start_date || '';
+  document.getElementById('emp-type').value = e.type || 'onboarding';
+  document.getElementById('employee-modal').classList.add('open');
+}
+
+async function saveEmployee() {
+  const name = document.getElementById('emp-name').value.trim();
+  if (!name) { toast('Name is required', true); return; }
+  const body = {
+    name,
+    title: document.getElementById('emp-title').value.trim() || null,
+    department: document.getElementById('emp-dept').value.trim() || null,
+    location: document.getElementById('emp-loc').value.trim() || null,
+    reports_to: document.getElementById('emp-reports').value.trim() || null,
+    profile: document.getElementById('emp-profile').value.trim() || null,
+    notes: document.getElementById('emp-notes').value.trim() || null,
+    start_date: document.getElementById('emp-start').value || null,
+    type: document.getElementById('emp-type').value
+  };
+
+  try {
+    if (editingEmployeeId) {
+      const [updated] = await sbPatch('employees', `id=eq.${editingEmployeeId}`, body);
+      const idx = employees.findIndex(e => e.id === editingEmployeeId);
+      if (idx !== -1) employees[idx] = updated;
+      currentEmployee = updated;
+      closeModal('employee-modal');
+      renderDetailInfo();
+      toast('Employee updated');
+    } else {
+      const [emp] = await sbPost('employees', body);
+      employees.unshift(emp);
+      // Apply templates if checked
+      if (document.getElementById('apply-templates').checked) {
+        const templates = await sbGet('task_templates', `type=eq.${body.type}&order=sort_order.asc`);
+        const startDate = body.start_date ? new Date(body.start_date + 'T00:00:00') : new Date();
+        const taskBodies = templates.map((t, i) => ({
+          employee_id: emp.id,
+          subject: t.subject,
+          assigned_to: t.assigned_to,
+          due_date: (() => { const d = new Date(startDate); d.setDate(d.getDate() + (t.days_offset || 0)); return d.toISOString().split('T')[0]; })(),
+          status: 'Not Started',
+          sort_order: i
+        }));
+        if (taskBodies.length) await sbPost('tasks', taskBodies);
+      }
+      closeModal('employee-modal');
+      toast('Employee added');
+      renderEmployeeList();
+    }
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+async function deleteEmployee() {
+  if (!(await uiConfirm(`This will permanently delete ${currentEmployee.name} along with all of their tasks, files and comments.`, { title: 'Delete employee?', confirmLabel: 'Delete employee' }))) return;
+  await sbDelete('employees', `id=eq.${currentEmployee.id}`);
+  employees = employees.filter(e => e.id !== currentEmployee.id);
+  toast('Employee deleted');
+  showPage('list');
+}
+
+// ─── TEMPLATES ────────────────────────────────────────────────────────────────
+let templateType = 'onboarding';
+async function loadTemplates() {
+  const data = await sbGet('task_templates', `type=eq.${templateType}&order=sort_order.asc`);
+  const tbody = document.getElementById('template-body');
+  tbody.innerHTML = data.map((t, i) => `<tr>
+    <td style="color:var(--text-3)">${i+1}</td>
+    <td>${t.subject}</td>
+    <td style="color:var(--text-2)">${t.assigned_to || '—'}</td>
+    <td style="color:var(--text-2)">${t.days_offset >= 0 ? '+' : ''}${t.days_offset} days</td>
+    <td><button class="btn btn-sm btn-danger" onclick="deleteTemplate('${t.id}')">Remove</button></td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-2)">No templates yet.</td></tr>';
+}
+
+function setTemplateType(t) {
+  templateType = t;
+  document.querySelectorAll('#page-templates .list-tab').forEach((b, i) => b.classList.toggle('active', (i===0&&t==='onboarding')||(i===1&&t==='offboarding')));
+  document.getElementById('template-type-label').textContent = (t==='onboarding'?'Onboarding':'Offboarding') + ' task templates';
+  loadTemplates();
+}
+
+function openAddTemplate() {
+  document.getElementById('tmpl-subject').value = '';
+  document.getElementById('tmpl-assigned').innerHTML = assigneeOptions('');
+  document.getElementById('tmpl-days').value = '0';
+  document.getElementById('template-modal').classList.add('open');
+}
+
+async function saveTemplate() {
+  const subject = document.getElementById('tmpl-subject').value.trim();
+  if (!subject) { toast('Subject required', true); return; }
+  await sbPost('task_templates', {
+    type: templateType,
+    subject,
+    assigned_to: document.getElementById('tmpl-assigned').value.trim() || null,
+    days_offset: parseInt(document.getElementById('tmpl-days').value) || 0,
+    sort_order: 99
+  });
+  closeModal('template-modal');
+  loadTemplates();
+  toast('Template added');
+}
+
+async function deleteTemplate(id) {
+  if (!(await uiConfirm('Remove this template?', { title: 'Remove template?', confirmLabel: 'Remove' }))) return;
+  await sbDelete('task_templates', `id=eq.${id}`);
+  loadTemplates();
+  toast('Template removed');
+}
+
+// ─── UTILITIES ────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Styled replacement for window.confirm(). Returns a Promise<boolean>.
+let _confirmResolver = null;
+function uiConfirm(message, opts = {}) {
+  document.getElementById('confirm-title').textContent = opts.title || 'Are you sure?';
+  document.getElementById('confirm-message').textContent = message;
+  const okBtn = document.getElementById('confirm-ok-btn');
+  okBtn.textContent = opts.confirmLabel || 'Delete';
+  okBtn.className = 'btn ' + (opts.danger === false ? 'btn-primary' : 'btn-danger');
+  document.getElementById('confirm-modal').classList.add('open');
+  return new Promise(resolve => { _confirmResolver = resolve; });
+}
+function resolveConfirm(result) {
+  document.getElementById('confirm-modal').classList.remove('open');
+  if (_confirmResolver) { _confirmResolver(result); _confirmResolver = null; }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => {
+  if (e.target === o) {
+    if (o.id === 'confirm-modal') { resolveConfirm(false); return; }
+    o.classList.remove('open');
+  }
+}));
+
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? '#A32D2D' : '#1a1a2e';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+initLogin();
+</script>
+</body>
+</html>
