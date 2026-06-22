@@ -152,6 +152,8 @@
   .task-controls input { width: 180px; }
   .task-controls input:focus, .task-controls select:focus { border-color: var(--brand); }
   .bulk-bar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); background: #faf9fc; flex-wrap: wrap; }
+  .task-row.row-selected { background: #eef1ff; }
+  .task-row.row-selected:hover { background: #e6eaff; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { padding: 8px 12px; text-align: left; color: var(--text-2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2); border-bottom: 1px solid var(--border); }
   td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -267,7 +269,7 @@
     </div>
     <div class="topbar-nav">
       <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
-      <button class="nav-btn" onclick="showPage('list')">Employees</button>
+      <button class="nav-btn" onclick="showPage('list')">To-do</button>
       <button class="nav-btn" onclick="showPage('templates')">Task templates</button>
     </div>
     <div class="topbar-spacer"></div>
@@ -367,7 +369,7 @@
       <div class="form-row"><label>Title</label><input id="emp-title" type="text" placeholder="Account Manager"></div>
       <div class="form-row"><label>Department</label><input id="emp-dept" type="text" placeholder="MII Account Based Sales"></div>
       <div class="form-row"><label>Location</label><input id="emp-loc" type="text" placeholder="Coquitlam - Head Office"></div>
-      <div class="form-row"><label>Reports to</label><input id="emp-reports" type="text" placeholder="Andrew Wallace"></div>
+      <div class="form-row"><label>Reports to</label><select id="emp-reports"></select></div>
       <div class="form-row"><label>Profile</label><input id="emp-profile" type="text" placeholder="D&C Sales"></div>
       <div class="form-row"><label>Start date</label><input id="emp-start" type="date"></div>
       <div class="form-row"><label>Type</label>
@@ -589,6 +591,25 @@ function assigneeOptions(selectedValue) {
     return `<option value="${escapeHtml(u.name)}"${sel}>${escapeHtml(u.name)}</option>`;
   }).join('');
   // If the saved value isn't a known user (e.g. an old "IT"/"HR" value), keep it as an option
+  if (!matched && val) {
+    opts += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
+  }
+  return opts;
+}
+
+// Fixed list of possible managers for the "Reports to" dropdown (alphabetical).
+const REPORTS_TO_NAMES = ['Andrew Wallace', 'Chris Brams', 'Derek Coueffin', 'Kyle Embley', 'Wes Oliver'];
+
+function reportsToOptions(selectedValue) {
+  const val = selectedValue || '';
+  let opts = `<option value="">—</option>`;
+  let matched = (val === '');
+  opts += REPORTS_TO_NAMES.map(n => {
+    const sel = (n === val) ? ' selected' : '';
+    if (sel) matched = true;
+    return `<option value="${escapeHtml(n)}"${sel}>${escapeHtml(n)}</option>`;
+  }).join('');
+  // Preserve a previously-saved value that isn't in the list.
   if (!matched && val) {
     opts += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
   }
@@ -860,7 +881,7 @@ function renderDetailInfo() {
           <option value="__me__">Assigned to me</option>
           ${users.map(u => `<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}
         </select>
-        <button class="btn btn-sm" id="bulk-toggle-btn" style="margin-left:auto" onclick="toggleBulkMode()">Assign</button>
+        <button class="btn btn-sm btn-primary" id="bulk-toggle-btn" style="margin-left:auto;min-width:96px;justify-content:center" onclick="toggleBulkMode()">Assign</button>
       </div>
       <table>
         <thead><tr><th>#</th><th>Subject</th><th>Assigned to</th><th>Due date</th><th>Status</th><th></th></tr></thead>
@@ -893,22 +914,28 @@ function renderTasks() {
     const sc = t.status === 'Completed' ? 'completed' : t.status === 'In Progress' ? 'in-progress' : 'not-started';
     const mine = t.assigned_to && t.assigned_to === currentUser;
     const assignedLabel = t.assigned_to ? escapeHtml(t.assigned_to) + (mine ? ' <span style="color:var(--brand);font-weight:600">(you)</span>' : '') : '—';
+    const checked = bulkSelected.has(t.id);
     const firstCell = bulkMode
-      ? `<td class="task-num" style="text-align:center"><input type="checkbox" style="width:auto;cursor:pointer" ${bulkSelected.has(t.id) ? 'checked' : ''} onchange="toggleBulkSelect('${t.id}', this.checked)"></td>`
+      ? `<td class="task-num" style="text-align:center"><input type="checkbox" style="width:auto;pointer-events:none" ${checked ? 'checked' : ''}></td>`
       : `<td class="task-num">${i + 1}</td>`;
-    return `<tr class="task-row">
+    const subjectCell = bulkMode
+      ? `<td><span style="font-weight:500">${escapeHtml(t.subject)}</span></td>`
+      : `<td><span class="task-subject-link" onclick="openTaskDetail('${t.id}')">${escapeHtml(t.subject)}</span></td>`;
+    const rowAttrs = bulkMode ? ` style="cursor:pointer" onclick="toggleBulkRow('${t.id}')"` : '';
+    const stop = bulkMode ? 'event.stopPropagation();' : '';
+    return `<tr class="task-row${bulkMode && checked ? ' row-selected' : ''}"${rowAttrs}>
       ${firstCell}
-      <td><span class="task-subject-link" onclick="openTaskDetail('${t.id}')">${escapeHtml(t.subject)}</span></td>
+      ${subjectCell}
       <td style="color:var(--text-2)">${assignedLabel}</td>
       <td style="color:var(--text-2)">${due}</td>
       <td>
-        <select class="status-select ${sc}" onchange="updateTaskStatus('${t.id}', this)">
+        <select class="status-select ${sc}" onclick="${stop}" onchange="updateTaskStatus('${t.id}', this)">
           <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
           <option ${t.status==='In Progress'?'selected':''}>In Progress</option>
           <option ${t.status==='Completed'?'selected':''}>Completed</option>
         </select>
       </td>
-      <td><button class="btn btn-sm btn-danger btn-icon" onclick="deleteTask('${t.id}')" title="Delete task">✕</button></td>
+      <td><button class="btn btn-sm btn-danger btn-icon" onclick="${stop}deleteTask('${t.id}')" title="Delete task">✕</button></td>
     </tr>`;
   }).join('');
   if (!filtered.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-2)">No tasks found.</td></tr>';
@@ -922,16 +949,15 @@ function toggleBulkMode() {
   const btn = document.getElementById('bulk-toggle-btn');
   if (btn) {
     btn.textContent = bulkMode ? 'Cancel' : 'Assign';
-    btn.classList.toggle('btn-primary', bulkMode);
   }
   // Close the add-task row if it's open, to avoid mixing modes.
   document.getElementById('add-task-tr')?.remove();
   renderTasks();
 }
 
-function toggleBulkSelect(id, checked) {
-  if (checked) bulkSelected.add(id); else bulkSelected.delete(id);
-  renderBulkBar();
+function toggleBulkRow(id) {
+  if (bulkSelected.has(id)) bulkSelected.delete(id); else bulkSelected.add(id);
+  renderTasks();
 }
 
 function renderBulkBar() {
@@ -939,11 +965,12 @@ function renderBulkBar() {
   if (!bar) return;
   if (!bulkMode) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
   const n = bulkSelected.size;
+  const prevAssignee = document.getElementById('bulk-assignee')?.value || '';
   bar.style.display = 'flex';
   bar.innerHTML = `
     <span style="font-size:13px;color:var(--text-2)">${n} task${n === 1 ? '' : 's'} selected</span>
     <span style="font-size:13px;color:var(--text-3)">Assign to:</span>
-    <select id="bulk-assignee" class="inline-input" style="min-width:150px">${assigneeOptions('')}</select>
+    <select id="bulk-assignee" class="inline-input" style="min-width:150px">${assigneeOptions(prevAssignee)}</select>
     <button class="btn btn-sm btn-primary" ${n ? '' : 'disabled'} onclick="applyBulkAssign()">Assign selected</button>
     <button class="btn btn-sm" onclick="toggleBulkMode()">Cancel</button>`;
 }
@@ -961,7 +988,7 @@ async function applyBulkAssign() {
     bulkMode = false;
     bulkSelected.clear();
     const btn = document.getElementById('bulk-toggle-btn');
-    if (btn) { btn.textContent = 'Assign'; btn.classList.remove('btn-primary'); }
+    if (btn) { btn.textContent = 'Assign'; }
     renderTasks();
     toast(`Assigned ${ids.length} task${ids.length === 1 ? '' : 's'} to ${label}`);
   } catch (e) {
@@ -1268,7 +1295,8 @@ function openAddEmployee() {
   document.getElementById('emp-modal-sub').textContent = 'Tasks will be auto-created from your templates.';
   document.getElementById('emp-save-btn').textContent = 'Add employee';
   document.getElementById('template-check-row').style.display = 'flex';
-  ['emp-name','emp-title','emp-dept','emp-loc','emp-reports','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
+  ['emp-name','emp-title','emp-dept','emp-loc','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('emp-reports').innerHTML = reportsToOptions('');
   document.getElementById('emp-start').value = '';
   document.getElementById('emp-type').value = currentType;
   document.getElementById('apply-templates').checked = true;
@@ -1286,7 +1314,7 @@ function openEditEmployee() {
   document.getElementById('emp-title').value = e.title || '';
   document.getElementById('emp-dept').value = e.department || '';
   document.getElementById('emp-loc').value = e.location || '';
-  document.getElementById('emp-reports').value = e.reports_to || '';
+  document.getElementById('emp-reports').innerHTML = reportsToOptions(e.reports_to || '');
   document.getElementById('emp-profile').value = e.profile || '';
   document.getElementById('emp-notes').value = e.notes || '';
   document.getElementById('emp-start').value = e.start_date || '';
@@ -1325,14 +1353,27 @@ async function saveEmployee() {
       if (document.getElementById('apply-templates').checked) {
         const templates = await sbGet('task_templates', `type=eq.${body.type}&order=sort_order.asc`);
         const startDate = body.start_date ? new Date(body.start_date + 'T00:00:00') : new Date();
-        const taskBodies = templates.map((t, i) => ({
-          employee_id: emp.id,
-          subject: t.subject,
-          assigned_to: t.assigned_to,
-          due_date: (() => { const d = new Date(startDate); d.setDate(d.getDate() + (t.days_offset || 0)); return d.toISOString().split('T')[0]; })(),
-          status: 'Not Started',
-          sort_order: i
-        }));
+        // If "Reports to" is a person who exists in the system, route their
+        // "Manager" template tasks to that user. If they're not in the system
+        // yet (e.g. Wes/Derek), leave those tasks as "Manager" — nothing fires.
+        const reportsTo = (body.reports_to || '').trim();
+        const reportsUser = reportsTo
+          ? users.find(u => (u.name || '').trim().toLowerCase() === reportsTo.toLowerCase())
+          : null;
+        const taskBodies = templates.map((t, i) => {
+          let assignedTo = t.assigned_to;
+          if ((assignedTo || '').trim().toLowerCase() === 'manager' && reportsUser) {
+            assignedTo = reportsUser.name;
+          }
+          return {
+            employee_id: emp.id,
+            subject: t.subject,
+            assigned_to: assignedTo,
+            due_date: (() => { const d = new Date(startDate); d.setDate(d.getDate() + (t.days_offset || 0)); return d.toISOString().split('T')[0]; })(),
+            status: 'Not Started',
+            sort_order: i
+          };
+        });
         if (taskBodies.length) await sbPost('tasks', taskBodies);
       }
       closeModal('employee-modal');
