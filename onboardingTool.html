@@ -151,6 +151,7 @@
   .task-controls input, .task-controls select { border: 1px solid var(--border-md); border-radius: var(--radius); padding: 5px 10px; font-size: 12px; font-family: var(--font); color: var(--text); background: white; outline: none; }
   .task-controls input { width: 180px; }
   .task-controls input:focus, .task-controls select:focus { border-color: var(--brand); }
+  .bulk-bar { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--border); background: #faf9fc; flex-wrap: wrap; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { padding: 8px 12px; text-align: left; color: var(--text-2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2); border-bottom: 1px solid var(--border); }
   td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -271,7 +272,7 @@
     </div>
     <div class="topbar-spacer"></div>
     <span id="topbar-user" style="color:rgba(255,255,255,0.85);font-size:12px;margin-right:12px"></span>
-    <button class="btn" style="color:white;border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);font-size:12px" onclick="logout()">Switch user</button>
+    <button class="btn" style="color:white;border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);font-size:12px" onclick="confirmLogout()">Log out</button>
   </div>
 
   <!-- DASHBOARD PAGE -->
@@ -466,8 +467,8 @@
 // │  then save the file. You only ever do this once.                          │
 // │  (Find both at: Supabase → your project → Settings → API)                 │
 // └─────────────────────────────────────────────────────────────────────────┘
-const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co/";   // ← CONFIGURE ME
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzY2pkcnFobnV5bmRtYmhob25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjk3NDUsImV4cCI6MjA5NzIwNTc0NX0.AWCrmcksEi5ljyN8B0m-Adnn5WULVeXIOCKdBX77teQ";    // ← CONFIGURE ME
+const SB_URL = "https://YOUR-PROJECT.supabase.co";   // ← CONFIGURE ME
+const SB_KEY = "PASTE-YOUR-ANON-PUBLIC-KEY-HERE";    // ← CONFIGURE ME
 
 let currentType = 'onboarding';
 let currentTemplateType = 'onboarding';
@@ -479,6 +480,8 @@ let tasks = [], chatter = [], files = [];
 let editingEmployeeId = null;
 let editingTaskId = null;
 let sbClient = null;   // Supabase client, used for Microsoft sign-in
+let bulkMode = false;            // task list bulk-assignment mode
+const bulkSelected = new Set();  // ids of tasks ticked for bulk assignment
 
 // ─── LOGIN (Microsoft SSO via Supabase Auth) ──────────────────────────────────
 function credentialsConfigured() {
@@ -566,6 +569,12 @@ async function enterApp() {
 async function logout() {
   try { if (sbClient) await sbClient.auth.signOut(); } catch (e) {}
   location.reload();
+}
+
+async function confirmLogout() {
+  if (await uiConfirm('Are you sure you want to log out?', { title: 'Log out?', confirmLabel: 'Log out', danger: false })) {
+    logout();
+  }
 }
 
 // Build <option> list of users for an "assigned to" dropdown.
@@ -684,7 +693,8 @@ function renderDashboard(outstanding, completed) {
     </tr>`;
   }).join('');
 
-  const doneRows = completed.map(t => `<tr class="dash-row" onclick="openEmployee('${t.employee_id}')">
+  const recentDone = completed.slice(0, 10);
+  const doneRows = recentDone.map(t => `<tr class="dash-row" onclick="openEmployee('${t.employee_id}')">
       <td style="font-weight:500">${escapeHtml(t.subject)}</td>
       <td style="color:var(--text-2)">${escapeHtml(employeeNameById(t.employee_id))}</td>
       <td style="color:var(--text-2)">${fmtFull(t.completed_at || t.created_at)}</td>
@@ -710,7 +720,7 @@ function renderDashboard(outstanding, completed) {
       ${completed.length ? `<table>
         <thead><tr><th>Task</th><th>Employee</th><th>Completed</th></tr></thead>
         <tbody>${doneRows}</tbody>
-      </table>` : `<div class="dash-empty">No completed tasks yet.</div>`}
+      </table>${completed.length > 10 ? `<div style="padding:8px 16px;font-size:12px;color:var(--text-3)">Showing the 10 most recent of ${completed.length} completed tasks.</div>` : ''}` : `<div class="dash-empty">No completed tasks yet.</div>`}
     </div>`;
 }
 
@@ -796,6 +806,7 @@ async function openEmployee(id) {
   // Reset to a clean loading state, then load each dataset independently so that
   // a failure in one (e.g. files) can never blank out the others (e.g. chatter).
   tasks = []; chatter = []; files = [];
+  bulkMode = false; bulkSelected.clear();
   document.getElementById('detail-left').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
   document.getElementById('detail-right').innerHTML = '';
 
@@ -849,11 +860,13 @@ function renderDetailInfo() {
           <option value="__me__">Assigned to me</option>
           ${users.map(u => `<option value="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}
         </select>
+        <button class="btn btn-sm" id="bulk-toggle-btn" style="margin-left:auto" onclick="toggleBulkMode()">Assign</button>
       </div>
       <table>
         <thead><tr><th>#</th><th>Subject</th><th>Assigned to</th><th>Due date</th><th>Status</th><th></th></tr></thead>
         <tbody id="task-body"></tbody>
       </table>
+      <div id="bulk-bar" class="bulk-bar" style="display:none"></div>
     </div>`;
   renderTasks();
 }
@@ -880,8 +893,11 @@ function renderTasks() {
     const sc = t.status === 'Completed' ? 'completed' : t.status === 'In Progress' ? 'in-progress' : 'not-started';
     const mine = t.assigned_to && t.assigned_to === currentUser;
     const assignedLabel = t.assigned_to ? escapeHtml(t.assigned_to) + (mine ? ' <span style="color:var(--brand);font-weight:600">(you)</span>' : '') : '—';
+    const firstCell = bulkMode
+      ? `<td class="task-num" style="text-align:center"><input type="checkbox" style="width:auto;cursor:pointer" ${bulkSelected.has(t.id) ? 'checked' : ''} onchange="toggleBulkSelect('${t.id}', this.checked)"></td>`
+      : `<td class="task-num">${i + 1}</td>`;
     return `<tr class="task-row">
-      <td class="task-num">${i + 1}</td>
+      ${firstCell}
       <td><span class="task-subject-link" onclick="openTaskDetail('${t.id}')">${escapeHtml(t.subject)}</span></td>
       <td style="color:var(--text-2)">${assignedLabel}</td>
       <td style="color:var(--text-2)">${due}</td>
@@ -896,7 +912,61 @@ function renderTasks() {
     </tr>`;
   }).join('');
   if (!filtered.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-2)">No tasks found.</td></tr>';
+  renderBulkBar();
   updateProgressPanel();
+}
+
+function toggleBulkMode() {
+  bulkMode = !bulkMode;
+  bulkSelected.clear();
+  const btn = document.getElementById('bulk-toggle-btn');
+  if (btn) {
+    btn.textContent = bulkMode ? 'Cancel' : 'Assign';
+    btn.classList.toggle('btn-primary', bulkMode);
+  }
+  // Close the add-task row if it's open, to avoid mixing modes.
+  document.getElementById('add-task-tr')?.remove();
+  renderTasks();
+}
+
+function toggleBulkSelect(id, checked) {
+  if (checked) bulkSelected.add(id); else bulkSelected.delete(id);
+  renderBulkBar();
+}
+
+function renderBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  if (!bar) return;
+  if (!bulkMode) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  const n = bulkSelected.size;
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <span style="font-size:13px;color:var(--text-2)">${n} task${n === 1 ? '' : 's'} selected</span>
+    <span style="font-size:13px;color:var(--text-3)">Assign to:</span>
+    <select id="bulk-assignee" class="inline-input" style="min-width:150px">${assigneeOptions('')}</select>
+    <button class="btn btn-sm btn-primary" ${n ? '' : 'disabled'} onclick="applyBulkAssign()">Assign selected</button>
+    <button class="btn btn-sm" onclick="toggleBulkMode()">Cancel</button>`;
+}
+
+async function applyBulkAssign() {
+  const ids = [...bulkSelected];
+  if (!ids.length) return;
+  const assignee = document.getElementById('bulk-assignee').value || null;
+  const label = assignee || 'Unassigned';
+  if (!(await uiConfirm(`Assign ${ids.length} task${ids.length === 1 ? '' : 's'} to ${label}?`,
+        { title: 'Assign tasks?', confirmLabel: 'Assign', danger: false }))) return;
+  try {
+    await Promise.all(ids.map(id => sbPatch('tasks', `id=eq.${id}`, { assigned_to: assignee })));
+    ids.forEach(id => { const t = tasks.find(t => t.id === id); if (t) t.assigned_to = assignee; });
+    bulkMode = false;
+    bulkSelected.clear();
+    const btn = document.getElementById('bulk-toggle-btn');
+    if (btn) { btn.textContent = 'Assign'; btn.classList.remove('btn-primary'); }
+    renderTasks();
+    toast(`Assigned ${ids.length} task${ids.length === 1 ? '' : 's'} to ${label}`);
+  } catch (e) {
+    toast('Bulk assign failed: ' + e.message, true);
+  }
 }
 
 function showAddTaskRow() {
