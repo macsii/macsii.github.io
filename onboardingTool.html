@@ -1322,6 +1322,20 @@ function openEditEmployee() {
   document.getElementById('employee-modal').classList.add('open');
 }
 
+// Fill in an employee's "Manager" placeholder tasks with their reports-to person,
+// but only if that person already exists in the system (so Wes/Derek don't fire).
+// Returns true if any update was attempted.
+async function reassignManagerTasks(employeeId, reportsToName) {
+  const name = (reportsToName || '').trim();
+  if (!name) return false;
+  const user = users.find(u => (u.name || '').trim().toLowerCase() === name.toLowerCase());
+  if (!user) return false; // not in the system yet — fire nowhere
+  try {
+    await sbPatch('tasks', `employee_id=eq.${employeeId}&assigned_to=ilike.manager`, { assigned_to: user.name });
+    return true;
+  } catch (e) { console.error('reassignManagerTasks failed', e); return false; }
+}
+
 async function saveEmployee() {
   const name = document.getElementById('emp-name').value.trim();
   if (!name) { toast('Name is required', true); return; }
@@ -1344,6 +1358,9 @@ async function saveEmployee() {
       if (idx !== -1) employees[idx] = updated;
       currentEmployee = updated;
       closeModal('employee-modal');
+      // Setting/changing "Reports to" fills in any existing "Manager" tasks for this employee.
+      const changed = await reassignManagerTasks(editingEmployeeId, body.reports_to);
+      if (changed) await loadTasks();
       renderDetailInfo();
       toast('Employee updated');
     } else {
