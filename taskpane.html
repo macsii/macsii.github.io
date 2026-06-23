@@ -321,11 +321,14 @@
   function legacySend(v){
     if(mode === "compose"){
       var item = Office.context.mailbox.item;
-      // Insert the DSR table at the cursor position, preserving the reply's
-      // existing recipients, subject, and the quoted thread below.
+      // Replace the To recipients with only the DSR queue address
+      // (setAsync overwrites the list, removing anyone already there).
+      item.to.setAsync([DSR_TO]);
+      // Insert the DSR table at the cursor position, preserving the
+      // subject and the quoted thread below.
       item.body.setSelectedDataAsync(htmlBody(v), {coercionType: Office.CoercionType.Html}, function(r){
         setStatus(r.status === Office.AsyncResultStatus.Succeeded ?
-          "DSR inserted into your reply - review and press Send." : "Could not write to the email: " + (r.error&&r.error.message), r.status === Office.AsyncResultStatus.Succeeded);
+          "DSR inserted and addressed to the design queue - review and press Send." : "Could not write to the email: " + (r.error&&r.error.message), r.status === Office.AsyncResultStatus.Succeeded);
       });
       return;
     }
