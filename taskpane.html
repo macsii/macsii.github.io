@@ -91,7 +91,7 @@
   <div class="field"><label for="notes">Notes (optional)</label><textarea id="notes" maxlength="2000" placeholder="Anything the designers should know"></textarea></div>
 
   <div id="missing"></div>
-  <button class="primary" id="go" disabled>Submit DSR</button>
+  <button class="primary" id="go" disabled>Create DSR email</button>
   <button class="secondary" id="copyBtn">Copy DSR text instead</button>
   <div id="status"></div>
 
@@ -101,7 +101,7 @@
   // Paste your Power Automate "HTTP request received" URL here to enable
   // one-tap submission that forwards the ORIGINAL client email + attachments.
   // Leave empty to fall back to opening a pre-filled email (no attachments).
-  var FLOW_URL = "https://default71ec80b54d3a441b91f88f9819d265.26.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8dafcda8eb3b4f21a1b903dca47d1733/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=difiBBU_gKkAXTnxvlbI0q5dtHVZEyTRAmsYQxILn9E";
+  var FLOW_URL = "https://default71ec80b54d3a441b91f88f9819d265.26.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8dafcda8eb3b4f21a1b903dca47d1733/triggers/manual/paths/invoke?api-version=1";
   var FLOW_KEY = "8f733390-938e-4857-9c7f-5b8b3107abd2";  // optional shared secret, sent inside the JSON body as "key"
   var SERVICES = ["Crossover","Layout","Submittal"];
   var COPILOT_PROMPT = "Look at this email and all of its attachments. Find the project number (often shown on a drawing title block as \"PROJECT NO:\") and the project name. Reply with just: Project Name and Project #.";
@@ -321,11 +321,11 @@
   function legacySend(v){
     if(mode === "compose"){
       var item = Office.context.mailbox.item;
-      item.to.setAsync([DSR_TO]);
-      item.subject.setAsync(subjectLine(v));
-      item.body.setAsync(htmlBody(v), {coercionType: Office.CoercionType.Html}, function(r){
+      // Insert the DSR table at the cursor position, preserving the reply's
+      // existing recipients, subject, and the quoted thread below.
+      item.body.setSelectedDataAsync(htmlBody(v), {coercionType: Office.CoercionType.Html}, function(r){
         setStatus(r.status === Office.AsyncResultStatus.Succeeded ?
-          "DSR inserted - review and press Send." : "Could not write to the email: " + (r.error&&r.error.message), r.status === Office.AsyncResultStatus.Succeeded);
+          "DSR inserted into your reply - review and press Send." : "Could not write to the email: " + (r.error&&r.error.message), r.status === Office.AsyncResultStatus.Succeeded);
       });
       return;
     }
