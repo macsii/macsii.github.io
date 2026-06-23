@@ -35,7 +35,7 @@
   input::placeholder, textarea::placeholder { color: #aeb4c0; }
   .involved-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; cursor: pointer; padding: 10px 2px; border-bottom: 1px solid var(--surface-3); }
   .involved-item:last-child { border-bottom: none; }
-  .involved-item input { width: auto; height: auto; cursor: pointer; margin: 0; flex: 0 0 auto; }
+  .involved-item input { width: auto; height: auto; cursor: pointer; margin: 0 0 0 auto; flex: 0 0 auto; }
   .involved-item span { line-height: 1.2; }
   .involved-item.involved-locked { color: var(--text-3); cursor: default; }
   .involved-item.involved-locked input { cursor: default; }
@@ -45,7 +45,7 @@
   /* CONFIG SCREEN */
   #config-screen {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, #001a4d 0%, #003087 100%);
+    background: #171946;
   }
   .config-card {
     background: white; border-radius: 16px; padding: 40px;
@@ -68,7 +68,7 @@
   /* TOPBAR */
   #app { display: none; flex-direction: column; min-height: 100vh; }
   .topbar {
-    background: #BADAFF; color: #173a66;
+    background: #171946; color: white;
     display: flex; align-items: center; gap: 0; padding: 0 24px;
     height: 52px; flex-shrink: 0; position: sticky; top: 0; z-index: 100;
   }
@@ -76,9 +76,9 @@
   .topbar-badge { background: rgba(255,255,255,0.2); font-weight: 700; font-size: 13px; padding: 4px 8px; border-radius: 5px; }
   .topbar-name { font-size: 14px; font-weight: 600; }
   .topbar-nav { display: flex; height: 100%; }
-  .nav-btn { color: rgba(23,58,102,0.7); font-size: 13px; padding: 0 16px; border: none; background: none; cursor: pointer; height: 100%; border-bottom: 3px solid transparent; transition: all 0.15s; white-space: nowrap; }
-  .nav-btn:hover { color: #173a66; background: rgba(0,0,0,0.05); }
-  .nav-btn.active { color: #173a66; font-weight: 600; border-bottom-color: #386AB3; }
+  .nav-btn { color: rgba(255,255,255,0.7); font-size: 13px; padding: 0 16px; border: none; background: none; cursor: pointer; height: 100%; border-bottom: 3px solid transparent; transition: all 0.15s; white-space: nowrap; }
+  .nav-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+  .nav-btn.active { color: white; font-weight: 600; border-bottom-color: white; }
   .topbar-spacer { flex: 1; }
 
   /* PAGE LAYOUT */
@@ -289,8 +289,8 @@
       <button class="nav-btn" onclick="showPage('templates')">Task templates</button>
     </div>
     <div class="topbar-spacer"></div>
-    <span id="topbar-user" style="color:#173a66;font-size:12px;margin-right:12px"></span>
-    <button class="btn" style="color:#173a66;border-color:rgba(23,58,102,0.35);background:rgba(255,255,255,0.45);font-size:12px" onclick="confirmLogout()">Log out</button>
+    <span id="topbar-user" style="color:rgba(255,255,255,0.85);font-size:12px;margin-right:12px"></span>
+    <button class="btn" style="color:white;border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.12);font-size:12px" onclick="confirmLogout()">Log out</button>
   </div>
 
   <!-- DASHBOARD PAGE -->
