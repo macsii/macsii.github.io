@@ -31,10 +31,12 @@
   body { font-family: var(--font); background: var(--surface-3); color: var(--text); font-size: 14px; line-height: 1.5; touch-action: pan-y; }
 
   /* Involved-people checklist (add/edit employee) */
-  .involved-list { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 170px; overflow-y: auto; border: 1.5px solid var(--border-md, var(--border)); border-radius: var(--radius); padding: 10px 12px; }
+  .involved-list { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; border: 1.5px solid var(--border-md, var(--border)); border-radius: var(--radius); padding: 2px 12px; }
   input::placeholder, textarea::placeholder { color: #aeb4c0; }
-  .involved-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-  .involved-item input { width: auto; cursor: pointer; margin: 0; }
+  .involved-item { display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1; cursor: pointer; padding: 9px 0; border-bottom: 1px solid var(--surface-3); }
+  .involved-item:last-child { border-bottom: none; }
+  .involved-item input { width: auto; height: auto; cursor: pointer; margin: 0; flex: 0 0 auto; }
+  .involved-item span { line-height: 1; }
   .involved-item.involved-locked { color: var(--text-3); cursor: default; }
   .involved-item.involved-locked input { cursor: default; }
   .involved-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -629,7 +631,11 @@ function involvedCandidates() {
   REPORTS_TO_NAMES.forEach(n => {
     if (!seen.has(n.trim().toLowerCase())) { names.push(n); seen.add(n.trim().toLowerCase()); }
   });
-  return names.sort((a, b) => a.localeCompare(b));
+  return names.sort((a, b) => {
+    const ma = isMandatoryInvolved(a), mb = isMandatoryInvolved(b);
+    if (ma !== mb) return ma ? -1 : 1;   // compulsory people first
+    return a.localeCompare(b);            // then alphabetical within each group
+  });
 }
 
 // Build the checklist of involved-people candidates. Mandatory people are
