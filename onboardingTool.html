@@ -27,7 +27,17 @@
     --font: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  body { font-family: var(--font); background: var(--surface-3); color: var(--text); font-size: 14px; line-height: 1.5; }
+  html, body { overflow-x: hidden; overscroll-behavior-x: none; }
+  body { font-family: var(--font); background: var(--surface-3); color: var(--text); font-size: 14px; line-height: 1.5; touch-action: pan-y; }
+
+  /* Involved-people checklist (add/edit employee) */
+  .involved-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 14px; max-height: 170px; overflow-y: auto; border: 1.5px solid var(--border-md, var(--border)); border-radius: var(--radius); padding: 10px 12px; }
+  .involved-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .involved-item input { width: auto; cursor: pointer; margin: 0; }
+  .involved-item.involved-locked { color: var(--text-3); cursor: default; }
+  .involved-item.involved-locked input { cursor: default; }
+  .involved-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .involved-chip { background: var(--surface-3); border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; font-size: 12px; color: var(--text-2); }
 
   /* CONFIG SCREEN */
   #config-screen {
@@ -380,6 +390,10 @@
       </div>
     </div>
     <div class="form-row"><label>Notes</label><textarea id="emp-notes" rows="2" placeholder="Additional notes..."></textarea></div>
+    <div class="form-row" id="emp-involved-row">
+      <label>People involved</label>
+      <div class="involved-list" id="emp-involved-list"></div>
+    </div>
     <div class="template-check" id="template-check-row">
       <input type="checkbox" id="apply-templates" checked>
       <label for="apply-templates">Auto-create tasks from templates</label>
@@ -597,7 +611,35 @@ function assigneeOptions(selectedValue) {
   return opts;
 }
 
-// Fixed list of possible managers for the "Reports to" dropdown (alphabetical).
+// People who are always involved in onboarding (always ticked + locked).
+const MANDATORY_INVOLVED = ['Leah', 'Natasha', 'Ben', 'Jeff', 'Rob'];
+
+function isMandatoryInvolved(name) {
+  const first = (name || '').trim().split(/\s+/)[0].toLowerCase();
+  return MANDATORY_INVOLVED.some(m => m.toLowerCase() === first);
+}
+
+// Build the checklist of every registered user. Mandatory people are pre-ticked
+// and disabled; `selected` (an array of names) pre-ticks anyone else.
+function renderInvolvedChecklist(selected) {
+  const sel = new Set(selected || []);
+  if (!users.length) return '<div style="font-size:12px;color:var(--text-3)">No users registered yet.</div>';
+  return users.map(u => {
+    const locked = isMandatoryInvolved(u.name);
+    const checked = locked || sel.has(u.name);
+    return `<label class="involved-item${locked ? ' involved-locked' : ''}">
+      <input type="checkbox" value="${escapeHtml(u.name)}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+      <span>${escapeHtml(u.name)}</span>
+    </label>`;
+  }).join('');
+}
+
+// Collect the ticked names (disabled/mandatory boxes are still read as checked).
+function collectInvolved() {
+  const c = document.getElementById('emp-involved-list');
+  if (!c) return [];
+  return [...c.querySelectorAll('input[type=checkbox]')].filter(x => x.checked).map(x => x.value);
+}
 const REPORTS_TO_NAMES = ['Andrew Wallace', 'Chris Brams', 'Derek Coueffin', 'Kyle Embley', 'Wes Oliver'];
 
 function reportsToOptions(selectedValue) {
@@ -1148,6 +1190,12 @@ function renderDetailRight() {
       <div style="text-align:right;font-size:11px;color:var(--text-2);margin-top:4px" id="panel-pct">${pct}% complete</div>
     </div>
     <div class="panel-section">
+      <div class="panel-title">Involved in ${currentEmployee && currentEmployee.type === 'offboarding' ? 'offboarding' : 'onboarding'}</div>
+      <div class="involved-chips">${(currentEmployee && currentEmployee.involved || []).length
+        ? (currentEmployee.involved).map(n => `<span class="involved-chip">${escapeHtml(n)}</span>`).join('')
+        : '<div style="font-size:12px;color:var(--text-3)">No one selected.</div>'}</div>
+    </div>
+    <div class="panel-section">
       <div class="panel-title">Files</div>
       <div id="files-list">${files.map(f => `<div class="file-item" onclick="openFile('${f.id}')" title="Open file">
         <span class="file-icon">📄</span>
@@ -1297,6 +1345,7 @@ function openAddEmployee() {
   document.getElementById('template-check-row').style.display = 'flex';
   ['emp-name','emp-title','emp-dept','emp-loc','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('emp-reports').innerHTML = reportsToOptions('');
+  document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist([]);
   document.getElementById('emp-start').value = '';
   document.getElementById('emp-type').value = currentType;
   document.getElementById('apply-templates').checked = true;
@@ -1315,6 +1364,7 @@ function openEditEmployee() {
   document.getElementById('emp-dept').value = e.department || '';
   document.getElementById('emp-loc').value = e.location || '';
   document.getElementById('emp-reports').innerHTML = reportsToOptions(e.reports_to || '');
+  document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist(e.involved || []);
   document.getElementById('emp-profile').value = e.profile || '';
   document.getElementById('emp-notes').value = e.notes || '';
   document.getElementById('emp-start').value = e.start_date || '';
@@ -1350,6 +1400,16 @@ async function saveEmployee() {
     start_date: document.getElementById('emp-start').value || null,
     type: document.getElementById('emp-type').value
   };
+  const involved = collectInvolved();
+
+  // Save the involved-people list separately and defensively, so the core save
+  // still works even if the `involved` column hasn't been added yet.
+  async function saveInvolved(empId, target) {
+    try {
+      const [row] = await sbPatch('employees', `id=eq.${empId}`, { involved });
+      if (target) target.involved = (row && row.involved) || involved;
+    } catch (e) { if (target) target.involved = involved; console.error('saveInvolved failed', e); }
+  }
 
   try {
     if (editingEmployeeId) {
@@ -1358,14 +1418,19 @@ async function saveEmployee() {
       if (idx !== -1) employees[idx] = updated;
       currentEmployee = updated;
       closeModal('employee-modal');
+      await saveInvolved(editingEmployeeId, currentEmployee);
+      const i2 = employees.findIndex(e => e.id === editingEmployeeId);
+      if (i2 !== -1) employees[i2] = currentEmployee;
       // Setting/changing "Reports to" fills in any existing "Manager" tasks for this employee.
       const changed = await reassignManagerTasks(editingEmployeeId, body.reports_to);
       if (changed) await loadTasks();
       renderDetailInfo();
+      renderDetailRight();
       toast('Employee updated');
     } else {
       const [emp] = await sbPost('employees', body);
       employees.unshift(emp);
+      await saveInvolved(emp.id, emp);
       // Apply templates if checked
       if (document.getElementById('apply-templates').checked) {
         const templates = await sbGet('task_templates', `type=eq.${body.type}&order=sort_order.asc`);
