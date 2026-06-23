@@ -31,7 +31,8 @@
   body { font-family: var(--font); background: var(--surface-3); color: var(--text); font-size: 14px; line-height: 1.5; touch-action: pan-y; }
 
   /* Involved-people checklist (add/edit employee) */
-  .involved-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px 14px; max-height: 170px; overflow-y: auto; border: 1.5px solid var(--border-md, var(--border)); border-radius: var(--radius); padding: 10px 12px; }
+  .involved-list { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 170px; overflow-y: auto; border: 1.5px solid var(--border-md, var(--border)); border-radius: var(--radius); padding: 10px 12px; }
+  input::placeholder, textarea::placeholder { color: #aeb4c0; }
   .involved-item { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
   .involved-item input { width: auto; cursor: pointer; margin: 0; }
   .involved-item.involved-locked { color: var(--text-3); cursor: default; }
@@ -375,10 +376,10 @@
     <h2 id="emp-modal-title">Add employee</h2>
     <p id="emp-modal-sub">Fill in the employee's details. Tasks will be auto-created from your templates.</p>
     <div class="form-grid">
-      <div class="form-row"><label>Full name *</label><input id="emp-name" type="text" placeholder="Jesse Walchuk"></div>
+      <div class="form-row"><label>Full name *</label><input id="emp-name" type="text" placeholder="John Doe"></div>
       <div class="form-row"><label>Title</label><input id="emp-title" type="text" placeholder="Account Manager"></div>
       <div class="form-row"><label>Department</label><input id="emp-dept" type="text" placeholder="MII Account Based Sales"></div>
-      <div class="form-row"><label>Location</label><input id="emp-loc" type="text" placeholder="Coquitlam - Head Office"></div>
+      <div class="form-row"><label>Location</label><input id="emp-loc" type="text" placeholder="Coquitlam"></div>
       <div class="form-row"><label>Reports to</label><select id="emp-reports"></select></div>
       <div class="form-row"><label>Profile</label><input id="emp-profile" type="text" placeholder="D&C Sales"></div>
       <div class="form-row"><label>Start date</label><input id="emp-start" type="date"></div>
@@ -483,8 +484,8 @@
 // │  then save the file. You only ever do this once.                          │
 // │  (Find both at: Supabase → your project → Settings → API)                 │
 // └─────────────────────────────────────────────────────────────────────────┘
-const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co/";   // ← CONFIGURE ME
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzY2pkcnFobnV5bmRtYmhob25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjk3NDUsImV4cCI6MjA5NzIwNTc0NX0.AWCrmcksEi5ljyN8B0m-Adnn5WULVeXIOCKdBX77teQ";    // ← CONFIGURE ME
+const SB_URL = "https://YOUR-PROJECT.supabase.co";   // ← CONFIGURE ME
+const SB_KEY = "PASTE-YOUR-ANON-PUBLIC-KEY-HERE";    // ← CONFIGURE ME
 
 let currentType = 'onboarding';
 let currentTemplateType = 'onboarding';
@@ -619,17 +620,30 @@ function isMandatoryInvolved(name) {
   return MANDATORY_INVOLVED.some(m => m.toLowerCase() === first);
 }
 
-// Build the checklist of every registered user. Mandatory people are pre-ticked
-// and disabled; `selected` (an array of names) pre-ticks anyone else.
+// Everyone who can be ticked as "involved": all registered users PLUS the
+// reports-to names that aren't users yet (e.g. Wes, Derek), de-duplicated and
+// sorted alphabetically.
+function involvedCandidates() {
+  const names = users.map(u => u.name).filter(Boolean);
+  const seen = new Set(names.map(n => n.trim().toLowerCase()));
+  REPORTS_TO_NAMES.forEach(n => {
+    if (!seen.has(n.trim().toLowerCase())) { names.push(n); seen.add(n.trim().toLowerCase()); }
+  });
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+// Build the checklist of involved-people candidates. Mandatory people are
+// pre-ticked and disabled; `selected` (an array of names) pre-ticks anyone else.
 function renderInvolvedChecklist(selected) {
   const sel = new Set(selected || []);
-  if (!users.length) return '<div style="font-size:12px;color:var(--text-3)">No users registered yet.</div>';
-  return users.map(u => {
-    const locked = isMandatoryInvolved(u.name);
-    const checked = locked || sel.has(u.name);
+  const names = involvedCandidates();
+  if (!names.length) return '<div style="font-size:12px;color:var(--text-3)">No people available yet.</div>';
+  return names.map(name => {
+    const locked = isMandatoryInvolved(name);
+    const checked = locked || sel.has(name);
     return `<label class="involved-item${locked ? ' involved-locked' : ''}">
-      <input type="checkbox" value="${escapeHtml(u.name)}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
-      <span>${escapeHtml(u.name)}</span>
+      <input type="checkbox" value="${escapeHtml(name)}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+      <span>${escapeHtml(name)}</span>
     </label>`;
   }).join('');
 }
