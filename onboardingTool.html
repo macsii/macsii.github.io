@@ -433,8 +433,12 @@
       <div class="involved-list" id="emp-involved-list"></div>
     </div>
     <div class="template-check" id="template-check-row">
-      <input type="checkbox" id="apply-templates" checked>
+      <input type="checkbox" id="apply-templates" checked onchange="toggleTemplateProfile()">
       <label for="apply-templates">Auto-create tasks from templates</label>
+    </div>
+    <div class="form-row" id="template-profile-row" style="margin-top:10px">
+      <label>Build tasks from template</label>
+      <select id="emp-template-profile"></select>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('employee-modal')">Cancel</button>
@@ -647,6 +651,34 @@ function assigneeOptions(selectedValue) {
     opts += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
   }
   return opts;
+}
+
+// Populate the "Build tasks from template" dropdown in the add-employee modal.
+async function fillTemplateProfileSelect() {
+  const sel = document.getElementById('emp-template-profile');
+  if (!sel) return;
+  sel.innerHTML = '<option>Loading…</option>';
+  if (!templateProfiles.length) {
+    try { templateProfiles = await sbGet('template_profiles', 'order=is_default.desc,name.asc'); }
+    catch (e) { templateProfiles = []; }
+  }
+  if (!templateProfiles.length) {
+    sel.innerHTML = '<option value="">general (default)</option>';
+    return;
+  }
+  const def = templateProfiles.find(p => p.is_default) || templateProfiles[0];
+  sel.innerHTML = templateProfiles.map(p =>
+    `<option value="${p.id}" ${p.id === def.id ? 'selected' : ''}>${escapeHtml(p.name)}${p.is_default ? ' (default)' : ''}</option>`
+  ).join('');
+}
+
+// Grey out the template dropdown when auto-create is unticked.
+function toggleTemplateProfile() {
+  const on = document.getElementById('apply-templates').checked;
+  const sel = document.getElementById('emp-template-profile');
+  if (sel) sel.disabled = !on;
+  const row = document.getElementById('template-profile-row');
+  if (row) row.style.opacity = on ? '1' : '0.5';
 }
 
 // People who are always involved in onboarding (always ticked + locked).
@@ -1398,12 +1430,15 @@ function openAddEmployee() {
   document.getElementById('emp-modal-sub').textContent = 'Tasks will be auto-created from your templates.';
   document.getElementById('emp-save-btn').textContent = 'Add employee';
   document.getElementById('template-check-row').style.display = 'flex';
+  document.getElementById('template-profile-row').style.display = 'block';
   ['emp-name','emp-title','emp-dept','emp-loc','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('emp-reports').innerHTML = reportsToOptions('');
   document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist([]);
   document.getElementById('emp-start').value = '';
   document.getElementById('emp-type').value = currentType;
   document.getElementById('apply-templates').checked = true;
+  fillTemplateProfileSelect();
+  toggleTemplateProfile();
   document.getElementById('employee-modal').classList.add('open');
 }
 
@@ -1414,6 +1449,7 @@ function openEditEmployee() {
   document.getElementById('emp-modal-sub').textContent = 'Update employee details.';
   document.getElementById('emp-save-btn').textContent = 'Save changes';
   document.getElementById('template-check-row').style.display = 'none';
+  document.getElementById('template-profile-row').style.display = 'none';
   document.getElementById('emp-name').value = e.name || '';
   document.getElementById('emp-title').value = e.title || '';
   document.getElementById('emp-dept').value = e.department || '';
@@ -1488,15 +1524,17 @@ async function saveEmployee() {
       await saveInvolved(emp.id, emp);
       // Apply templates if checked
       if (document.getElementById('apply-templates').checked) {
-        // Apply the default template profile's tasks. Falls back to all templates
-        // of the type if profiles aren't set up yet (i.e. before update6.sql is run).
-        let defaultProfileId = null;
-        try {
-          const dp = await sbGet('template_profiles', 'is_default=eq.true&select=id&limit=1');
-          defaultProfileId = dp && dp[0] && dp[0].id;
-        } catch (e) {}
-        const tmplFilter = defaultProfileId
-          ? `profile_id=eq.${defaultProfileId}&type=eq.${body.type}`
+        // Build tasks from the template profile chosen in the dropdown. Falls back
+        // to the default profile, then to all templates of the type (pre-update6).
+        let profileId = document.getElementById('emp-template-profile')?.value || null;
+        if (!profileId) {
+          try {
+            const dp = await sbGet('template_profiles', 'is_default=eq.true&select=id&limit=1');
+            profileId = dp && dp[0] && dp[0].id;
+          } catch (e) {}
+        }
+        const tmplFilter = profileId
+          ? `profile_id=eq.${profileId}&type=eq.${body.type}`
           : `type=eq.${body.type}`;
         const templates = await sbGet('task_templates', `${tmplFilter}&order=sort_order.asc`);
         const startDate = body.start_date ? new Date(body.start_date + 'T00:00:00') : new Date();
