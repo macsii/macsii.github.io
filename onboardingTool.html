@@ -415,8 +415,8 @@
     <div class="form-grid">
       <div class="form-row"><label>Full name *</label><input id="emp-name" type="text" placeholder="John Doe"></div>
       <div class="form-row"><label>Title</label><input id="emp-title" type="text" placeholder="Account Manager"></div>
-      <div class="form-row"><label>Department</label><input id="emp-dept" type="text" placeholder="MII Account Based Sales"></div>
-      <div class="form-row"><label>Location</label><input id="emp-loc" type="text" placeholder="Coquitlam"></div>
+      <div class="form-row"><label>Department</label><select id="emp-dept"></select></div>
+      <div class="form-row"><label>Location</label><select id="emp-loc"></select></div>
       <div class="form-row"><label>Reports to</label><select id="emp-reports"></select></div>
       <div class="form-row"><label>Profile</label><input id="emp-profile" type="text" placeholder="D&C Sales"></div>
       <div class="form-row"><label>Start date</label><input id="emp-start" type="date"></div>
@@ -429,7 +429,7 @@
     </div>
     <div class="form-row"><label>Notes</label><textarea id="emp-notes" rows="2" placeholder="Additional notes..."></textarea></div>
     <div class="form-row" id="emp-involved-row">
-      <label>People involved</label>
+      <label>Onboarding Team</label>
       <div class="involved-list" id="emp-involved-list"></div>
     </div>
     <div class="template-check" id="template-check-row">
@@ -727,7 +727,27 @@ function collectInvolved() {
   if (!c) return [];
   return [...c.querySelectorAll('input[type=checkbox]')].filter(x => x.checked).map(x => x.value);
 }
-const REPORTS_TO_NAMES = ['Andrew Wallace', 'Chris Brams', 'Derek Coueffin', 'Kyle Embley', 'Wes Oliver'];
+const REPORTS_TO_NAMES = ['Andrew Wallace', 'Brandon Armstrong', 'Breanna Petruik', 'Chris Brams', 'Derek Coueffin', 'Jamie Capell', 'Kim McNeill', 'Kyle Embley', 'Mark Oliver', 'Rob Stajduhar', 'Wes Oliver'];
+
+// Generic <option> builder for a fixed list (with a blank option, preserving any
+// previously-saved value that isn't in the list).
+function fixedOptions(list, selectedValue) {
+  const val = selectedValue || '';
+  let opts = `<option value="">—</option>`;
+  let matched = (val === '');
+  opts += list.map(n => {
+    const sel = (n === val) ? ' selected' : '';
+    if (sel) matched = true;
+    return `<option value="${escapeHtml(n)}"${sel}>${escapeHtml(n)}</option>`;
+  }).join('');
+  if (!matched && val) opts += `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>`;
+  return opts;
+}
+
+const DEPARTMENT_NAMES = ['Lighting', 'Electrical'];
+const LOCATION_NAMES = ['Coquitlam', 'Victoria', 'Vancouver'];
+function departmentOptions(selected) { return fixedOptions(DEPARTMENT_NAMES, selected); }
+function locationOptions(selected) { return fixedOptions(LOCATION_NAMES, selected); }
 
 function reportsToOptions(selectedValue) {
   const val = selectedValue || '';
@@ -1431,7 +1451,9 @@ function openAddEmployee() {
   document.getElementById('emp-save-btn').textContent = 'Add employee';
   document.getElementById('template-check-row').style.display = 'flex';
   document.getElementById('template-profile-row').style.display = 'block';
-  ['emp-name','emp-title','emp-dept','emp-loc','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
+  ['emp-name','emp-title','emp-profile','emp-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('emp-dept').innerHTML = departmentOptions('');
+  document.getElementById('emp-loc').innerHTML = locationOptions('');
   document.getElementById('emp-reports').innerHTML = reportsToOptions('');
   document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist([]);
   document.getElementById('emp-start').value = '';
@@ -1452,8 +1474,8 @@ function openEditEmployee() {
   document.getElementById('template-profile-row').style.display = 'none';
   document.getElementById('emp-name').value = e.name || '';
   document.getElementById('emp-title').value = e.title || '';
-  document.getElementById('emp-dept').value = e.department || '';
-  document.getElementById('emp-loc').value = e.location || '';
+  document.getElementById('emp-dept').innerHTML = departmentOptions(e.department || '');
+  document.getElementById('emp-loc').innerHTML = locationOptions(e.location || '');
   document.getElementById('emp-reports').innerHTML = reportsToOptions(e.reports_to || '');
   document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist(e.involved || []);
   document.getElementById('emp-profile').value = e.profile || '';
