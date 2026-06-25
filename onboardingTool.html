@@ -154,6 +154,7 @@
 
   .detail-body { display: grid; grid-template-columns: 1fr 280px; gap: 0; min-height: calc(100vh - 110px); }
   .detail-left { padding: 24px 24px 40px; }
+  .record-meta { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); display: flex; flex-direction: column; gap: 3px; }
   .detail-right { background: white; border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; }
 
   /* CARDS */
@@ -683,9 +684,14 @@ function toggleTemplateProfile() {
 
 // People who are always involved in onboarding (always ticked + locked).
 const MANDATORY_INVOLVED = ['Leah', 'Natasha', 'Ben', 'Jeff', 'Rob'];
+// Exceptions: people whose first name matches above but who are NOT mandatory
+// (e.g. a second "Rob" who shouldn't be auto-added).
+const MANDATORY_EXCLUDE = ['Rob Stajduhar'];
 
 function isMandatoryInvolved(name) {
-  const first = (name || '').trim().split(/\s+/)[0].toLowerCase();
+  const full = (name || '').trim();
+  if (MANDATORY_EXCLUDE.some(e => e.toLowerCase() === full.toLowerCase())) return false;
+  const first = full.split(/\s+/)[0].toLowerCase();
   return MANDATORY_INVOLVED.some(m => m.toLowerCase() === first);
 }
 
@@ -986,6 +992,44 @@ async function openEmployee(id) {
   renderDetailRight();  // progress + files + chatter
 }
 
+function fmtDateTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// "Created by … / Last updated by …" line shown below the task list.
+function renderRecordMeta() {
+  const el = document.getElementById('record-meta');
+  if (!el) return;
+  const e = currentEmployee || {};
+  const created = e.created_at ? `Created${e.created_by ? ' by ' + escapeHtml(e.created_by) : ''} on ${fmtDateTime(e.created_at)}` : '';
+  const updated = e.updated_at ? `Last updated${e.updated_by ? ' by ' + escapeHtml(e.updated_by) : ''} on ${fmtDateTime(e.updated_at)}` : '';
+  el.innerHTML = (created ? `<div>${created}</div>` : '') + (updated ? `<div>${updated}</div>` : '');
+}
+
+// Best-effort write of metadata columns (created_by/updated_by/updated_at).
+// Won't break anything if those columns don't exist yet (before update7.sql).
+async function patchEmployeeMeta(empId, fields, target) {
+  if (target) Object.assign(target, fields);
+  try { await sbPatch('employees', `id=eq.${empId}`, fields); }
+  catch (e) { console.error('employee meta patch failed', e); }
+}
+
+// Record that the current employee was just changed (by whom, and when).
+function touchEmployee() {
+  if (!currentEmployee) return;
+  const updated_at = new Date().toISOString();
+  currentEmployee.updated_by = currentUser;
+  currentEmployee.updated_at = updated_at;
+  const idx = employees.findIndex(x => x.id === currentEmployee.id);
+  if (idx !== -1) { employees[idx].updated_by = currentUser; employees[idx].updated_at = updated_at; }
+  renderRecordMeta();
+  patchEmployeeMeta(currentEmployee.id, { updated_by: currentUser, updated_at });
+}
+
 function renderDetailInfo() {
   const e = currentEmployee;
   const startDate = e.start_date ? new Date(e.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) : '—';
@@ -1037,8 +1081,10 @@ function renderDetailInfo() {
         <tbody id="task-body"></tbody>
       </table>
       <div id="bulk-bar" class="bulk-bar" style="display:none"></div>
-    </div>`;
+    </div>
+    <div class="record-meta" id="record-meta"></div>`;
   renderTasks();
+  renderRecordMeta();
 }
 
 async function loadTasks() {
@@ -1139,6 +1185,7 @@ async function applyBulkAssign() {
     const btn = document.getElementById('bulk-toggle-btn');
     if (btn) { btn.textContent = 'Assign'; }
     renderTasks();
+    touchEmployee();
     toast(`Assigned ${ids.length} task${ids.length === 1 ? '' : 's'} to ${label}`);
   } catch (e) {
     toast('Bulk assign failed: ' + e.message, true);
@@ -1181,6 +1228,7 @@ async function saveNewTask() {
     tasks.push(saved);
     document.getElementById('add-task-tr')?.remove();
     renderTasks();
+    touchEmployee();
     toast('Task added');
   } catch(e) { toast('Failed to save task', true); }
 }
@@ -1197,6 +1245,7 @@ async function updateTaskStatus(id, select) {
     const completed_at = status === 'Completed' ? new Date().toISOString() : null;
     try { await sbPatch('tasks', `id=eq.${id}`, { completed_at }); if (t) t.completed_at = completed_at; } catch (e) {}
     updateProgressPanel();
+    touchEmployee();
     toast('Status updated');
   } catch(e) { toast('Failed to update', true); }
 }
@@ -1206,6 +1255,7 @@ async function deleteTask(id) {
   await sbDelete('tasks', `id=eq.${id}`);
   tasks = tasks.filter(t => t.id !== id);
   renderTasks();
+  touchEmployee();
   toast('Task deleted');
 }
 
@@ -1251,6 +1301,7 @@ async function saveTaskDetail() {
     } catch (e) {}
     closeModal('task-modal');
     renderTasks();
+    touchEmployee();
     toast('Task updated');
   } catch (e) { toast('Failed to save: ' + e.message, true); }
 }
@@ -1263,6 +1314,7 @@ async function deleteTaskFromModal() {
     tasks = tasks.filter(t => t.id !== editingTaskId);
     closeModal('task-modal');
     renderTasks();
+    touchEmployee();
     toast('Task deleted');
   } catch (e) { toast('Failed to delete: ' + e.message, true); }
 }
@@ -1534,6 +1586,7 @@ async function saveEmployee() {
       await saveInvolved(editingEmployeeId, currentEmployee);
       const i2 = employees.findIndex(e => e.id === editingEmployeeId);
       if (i2 !== -1) employees[i2] = currentEmployee;
+      await patchEmployeeMeta(editingEmployeeId, { updated_by: currentUser, updated_at: new Date().toISOString() }, currentEmployee);
       // Setting/changing "Reports to" fills in any existing "Manager" tasks for this employee.
       const changed = await reassignManagerTasks(editingEmployeeId, body.reports_to);
       if (changed) await loadTasks();
@@ -1544,6 +1597,7 @@ async function saveEmployee() {
       const [emp] = await sbPost('employees', body);
       employees.unshift(emp);
       await saveInvolved(emp.id, emp);
+      await patchEmployeeMeta(emp.id, { created_by: currentUser }, emp);
       // Apply templates if checked
       if (document.getElementById('apply-templates').checked) {
         // Build tasks from the template profile chosen in the dropdown. Falls back
