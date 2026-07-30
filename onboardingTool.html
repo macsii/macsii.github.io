@@ -293,8 +293,8 @@
     </div>
     <div class="topbar-nav">
       <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
-      <button class="nav-btn" onclick="showPage('list')">To-do</button>
-      <button class="nav-btn" onclick="showPage('templates')">Task templates</button>
+      <button class="nav-btn" onclick="showPage('list')">To-Do</button>
+      <button class="nav-btn" onclick="showPage('templates')">Task Templates</button>
     </div>
     <div class="topbar-spacer"></div>
     <span id="topbar-user" style="color:rgba(255,255,255,0.85);font-size:12px;margin-right:12px"></span>
@@ -418,11 +418,11 @@
       <div class="form-row"><label>Title</label><input id="emp-title" type="text" placeholder="Account Manager"></div>
       <div class="form-row"><label>Department</label><select id="emp-dept"></select></div>
       <div class="form-row"><label>Location</label><select id="emp-loc"></select></div>
-      <div class="form-row"><label>Reports to</label><select id="emp-reports"></select></div>
+      <div class="form-row" id="emp-reports-row"><label>Reports to</label><select id="emp-reports"></select></div>
       <div class="form-row"><label>Profile</label><input id="emp-profile" type="text" placeholder="D&C Sales"></div>
-      <div class="form-row"><label>Start date</label><input id="emp-start" type="date"></div>
+      <div class="form-row"><label id="emp-date-label">Start date</label><input id="emp-start" type="date"></div>
       <div class="form-row"><label>Type</label>
-        <select id="emp-type">
+        <select id="emp-type" onchange="applyEmpType()">
           <option value="onboarding">Onboarding</option>
           <option value="offboarding">Offboarding</option>
         </select>
@@ -430,7 +430,7 @@
     </div>
     <div class="form-row"><label>Notes</label><textarea id="emp-notes" rows="2" placeholder="Additional notes..."></textarea></div>
     <div class="form-row" id="emp-involved-row">
-      <label>Onboarding Team</label>
+      <label id="emp-involved-label">Onboarding Team</label>
       <div class="involved-list" id="emp-involved-list"></div>
     </div>
     <div class="template-check" id="template-check-row">
@@ -682,49 +682,70 @@ function toggleTemplateProfile() {
   if (row) row.style.opacity = on ? '1' : '0.5';
 }
 
-// People who are always involved in onboarding (always ticked + locked).
-const MANDATORY_INVOLVED = ['Leah', 'Natasha', 'Ben', 'Jeff', 'Rob'];
+// People who are always ticked + locked on the team checklist, by employee type.
+const MANDATORY_ONBOARDING = ['Leah', 'Natasha', 'Ben', 'Jeff', 'Rob'];
+const MANDATORY_OFFBOARDING = ['Ben', 'Jeff', 'Rob'];
 // Exceptions: people whose first name matches above but who are NOT mandatory
 // (e.g. a second "Rob" who shouldn't be auto-added).
 const MANDATORY_EXCLUDE = ['Rob Stajduhar'];
 
-function isMandatoryInvolved(name) {
+function mandatoryListForType(type) {
+  return type === 'offboarding' ? MANDATORY_OFFBOARDING : MANDATORY_ONBOARDING;
+}
+
+function isMandatoryInvolved(name, type) {
   const full = (name || '').trim();
   if (MANDATORY_EXCLUDE.some(e => e.toLowerCase() === full.toLowerCase())) return false;
   const first = full.split(/\s+/)[0].toLowerCase();
-  return MANDATORY_INVOLVED.some(m => m.toLowerCase() === first);
+  return mandatoryListForType(type).some(m => m.toLowerCase() === first);
 }
 
 // Everyone who can be ticked as "involved": all registered users PLUS the
 // reports-to names that aren't users yet (e.g. Wes, Derek), de-duplicated and
 // sorted alphabetically.
-function involvedCandidates() {
+function involvedCandidates(type) {
   const names = users.map(u => u.name).filter(Boolean);
   const seen = new Set(names.map(n => n.trim().toLowerCase()));
   REPORTS_TO_NAMES.forEach(n => {
     if (!seen.has(n.trim().toLowerCase())) { names.push(n); seen.add(n.trim().toLowerCase()); }
   });
   return names.sort((a, b) => {
-    const ma = isMandatoryInvolved(a), mb = isMandatoryInvolved(b);
+    const ma = isMandatoryInvolved(a, type), mb = isMandatoryInvolved(b, type);
     if (ma !== mb) return ma ? -1 : 1;   // compulsory people first
     return a.localeCompare(b);            // then alphabetical within each group
   });
 }
 
-// Build the checklist of involved-people candidates. Mandatory people are
-// pre-ticked and disabled; `selected` (an array of names) pre-ticks anyone else.
-function renderInvolvedChecklist(selected) {
+// Build the checklist of involved-people candidates. Mandatory people (for the
+// given type) are pre-ticked and disabled; `selected` pre-ticks anyone else.
+function renderInvolvedChecklist(selected, type) {
+  type = type || 'onboarding';
   const sel = new Set(selected || []);
-  const names = involvedCandidates();
+  const names = involvedCandidates(type);
   if (!names.length) return '<div style="font-size:12px;color:var(--text-3)">No people available yet.</div>';
   return names.map(name => {
-    const locked = isMandatoryInvolved(name);
+    const locked = isMandatoryInvolved(name, type);
     const checked = locked || sel.has(name);
     return `<label class="involved-item${locked ? ' involved-locked' : ''}">
       <span>${escapeHtml(name)}</span>
       <input type="checkbox" value="${escapeHtml(name)}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
     </label>`;
   }).join('');
+}
+
+// Apply the onboarding/offboarding differences in the add/edit employee modal.
+let involvedBaseSelection = [];
+function applyEmpType() {
+  const type = document.getElementById('emp-type').value;
+  const off = type === 'offboarding';
+  document.getElementById('emp-date-label').textContent = off ? 'End date' : 'Start date';
+  document.getElementById('emp-involved-label').textContent = off ? 'Offboarding Team' : 'Onboarding Team';
+  const rep = document.getElementById('emp-reports');
+  const repRow = document.getElementById('emp-reports-row');
+  rep.disabled = off;
+  if (off) rep.value = '';
+  if (repRow) repRow.style.opacity = off ? '0.5' : '1';
+  document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist(involvedBaseSelection, type);
 }
 
 // Collect the ticked names (disabled/mandatory boxes are still read as checked).
@@ -750,7 +771,7 @@ function fixedOptions(list, selectedValue) {
   return opts;
 }
 
-const DEPARTMENT_NAMES = ['Lighting', 'Electrical'];
+const DEPARTMENT_NAMES = ['Lighting', 'Electrical', 'Power'];
 const LOCATION_NAMES = ['Coquitlam', 'Victoria', 'Vancouver'];
 function departmentOptions(selected) { return fixedOptions(DEPARTMENT_NAMES, selected); }
 function locationOptions(selected) { return fixedOptions(LOCATION_NAMES, selected); }
@@ -1507,9 +1528,10 @@ function openAddEmployee() {
   document.getElementById('emp-dept').innerHTML = departmentOptions('');
   document.getElementById('emp-loc').innerHTML = locationOptions('');
   document.getElementById('emp-reports').innerHTML = reportsToOptions('');
-  document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist([]);
+  involvedBaseSelection = [];
   document.getElementById('emp-start').value = '';
   document.getElementById('emp-type').value = currentType;
+  applyEmpType();
   document.getElementById('apply-templates').checked = true;
   fillTemplateProfileSelect();
   toggleTemplateProfile();
@@ -1529,11 +1551,12 @@ function openEditEmployee() {
   document.getElementById('emp-dept').innerHTML = departmentOptions(e.department || '');
   document.getElementById('emp-loc').innerHTML = locationOptions(e.location || '');
   document.getElementById('emp-reports').innerHTML = reportsToOptions(e.reports_to || '');
-  document.getElementById('emp-involved-list').innerHTML = renderInvolvedChecklist(e.involved || []);
   document.getElementById('emp-profile').value = e.profile || '';
   document.getElementById('emp-notes').value = e.notes || '';
   document.getElementById('emp-start').value = e.start_date || '';
   document.getElementById('emp-type').value = e.type || 'onboarding';
+  involvedBaseSelection = e.involved || [];
+  applyEmpType();
   document.getElementById('employee-modal').classList.add('open');
 }
 
@@ -1565,6 +1588,7 @@ async function saveEmployee() {
     start_date: document.getElementById('emp-start').value || null,
     type: document.getElementById('emp-type').value
   };
+  if (body.type === 'offboarding') body.reports_to = null;
   const involved = collectInvolved();
 
   // Save the involved-people list separately and defensively, so the core save
