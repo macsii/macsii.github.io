@@ -259,6 +259,16 @@
     /* Roomier taps + no field overflow inside the add/edit modal */
     .modal { padding: 20px 18px; }
     .form-grid { gap: 10px; }
+
+    /* Condensed top nav: drop the wordmark + username, spread the tabs across */
+    .topbar { padding: 0 8px; gap: 2px; }
+    .topbar-logo { margin-right: 4px; }
+    .topbar-name { display: none; }
+    #topbar-user { display: none; }
+    .topbar-spacer { display: none; }
+    .topbar-nav { flex: 1; }
+    .topbar-nav .nav-btn { flex: 1; min-width: 0; padding: 0 4px; font-size: 11.5px; text-align: center; }
+    .topbar > .btn { padding: 6px 9px; }
   }
 </style>
 </head>
@@ -354,7 +364,7 @@
       <span class="detail-name-row" id="detail-breadcrumb">Employee</span>
       <div class="detail-actions">
         <button class="btn btn-sm" onclick="openEditEmployee()">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteEmployee()">Delete</button>
+        <button class="btn btn-danger" onclick="deleteEmployee()">Delete</button>
       </div>
     </div>
     <div class="detail-body">
@@ -541,7 +551,7 @@
 // │  then save the file. You only ever do this once.                          │
 // │  (Find both at: Supabase → your project → Settings → API)                 │
 // └─────────────────────────────────────────────────────────────────────────┘
-const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co/";   // ← CONFIGURE ME
+const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co";   // ← CONFIGURE ME
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzY2pkcnFobnV5bmRtYmhob25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjk3NDUsImV4cCI6MjA5NzIwNTc0NX0.AWCrmcksEi5ljyN8B0m-Adnn5WULVeXIOCKdBX77teQ";    // ← CONFIGURE ME
 
 let currentType = 'onboarding';
