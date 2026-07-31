@@ -186,6 +186,15 @@
   .task-num { color: var(--text-3); width: 32px; }
   .task-subject-link { color: var(--brand); cursor: pointer; font-weight: 500; }
   .task-subject-link:hover { text-decoration: underline; }
+  .tmpl-drag-handle { cursor: grab; touch-action: none; user-select: none; white-space: nowrap; color: var(--text-3); }
+  .tmpl-drag-handle:active { cursor: grabbing; }
+  .tmpl-grip { font-size: 15px; line-height: 1; vertical-align: middle; color: var(--text-3); }
+  .tmpl-num { margin-left: 8px; color: var(--text-3); vertical-align: middle; }
+  #template-body tr.dragging td { background: #e7eefb; }
+  #template-body tr.dragging td:first-child { box-shadow: inset 4px 0 0 var(--brand); }
+  #template-body tr.dragging td { box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
+  #template-body tr.dragging { opacity: 0.92; }
+  body.tmpl-dragging, body.tmpl-dragging * { cursor: grabbing !important; user-select: none !important; }
   .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .badge-completed { background: #C0DD97; color: #27500A; }
   .badge-in-progress { background: #FAC775; color: #633806; }
@@ -475,8 +484,8 @@
 
 <div class="modal-overlay" id="template-modal">
   <div class="modal">
-    <h2>Add task template</h2>
-    <p>This task will be auto-created for all new employees of this type.</p>
+    <h2 id="template-modal-title">Add task template</h2>
+    <p id="template-modal-sub">This task will be auto-created for all new employees of this type.</p>
     <div class="form-row"><label>Task subject *</label><input id="tmpl-subject" type="text" placeholder="e.g. Create Email Address"></div>
     <div class="form-grid">
       <div class="form-row"><label>Default assigned to</label><select id="tmpl-assigned"></select></div>
@@ -484,7 +493,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('template-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveTemplate()">Add template</button>
+      <button class="btn btn-primary" id="template-save-btn" onclick="saveTemplate()">Add template</button>
     </div>
   </div>
 </div>
@@ -1796,12 +1805,16 @@ async function loadTemplates() {
   try {
     data = await sbGet('task_templates', `profile_id=eq.${currentProfile.id}&type=eq.${templateType}&order=sort_order.asc`);
   } catch (e) { console.error('loadTemplates failed', e); }
-  tbody.innerHTML = data.map((t, i) => `<tr>
-    <td style="color:var(--text-3)">${i+1}</td>
-    <td>${escapeHtml(t.subject)}</td>
+  templateTasks = data;
+  tbody.innerHTML = data.map((t, i) => `<tr data-tid="${t.id}">
+    <td class="tmpl-drag-handle" onpointerdown="templateDragStart(event,'${t.id}')" title="Drag to reorder"><span class="tmpl-grip">⠿</span><span class="tmpl-num">${i+1}</span></td>
+    <td><span class="task-subject-link" onclick="openEditTemplate('${t.id}')">${escapeHtml(t.subject)}</span></td>
     <td style="color:var(--text-2)">${escapeHtml(t.assigned_to || '—')}</td>
     <td style="color:var(--text-2)">${t.days_offset >= 0 ? '+' : ''}${t.days_offset} days</td>
-    <td><button class="btn btn-sm btn-danger" onclick="deleteTemplate('${t.id}')">Remove</button></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm" onclick="openEditTemplate('${t.id}')">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${t.id}')">Remove</button>
+    </td>
   </tr>`).join('') || empty;
 }
 
@@ -1812,18 +1825,53 @@ function setTemplateType(t) {
   loadTemplates();
 }
 
+let editingTemplateId = null;
+let templateTasks = [];
+
 function openAddTemplate() {
   if (!currentProfile) { toast('Open a profile first', true); return; }
+  editingTemplateId = null;
+  document.getElementById('template-modal-title').textContent = 'Add task template';
+  document.getElementById('template-modal-sub').textContent = 'This task will be auto-created for all new employees of this type.';
+  document.getElementById('template-save-btn').textContent = 'Add template';
   document.getElementById('tmpl-subject').value = '';
   document.getElementById('tmpl-assigned').innerHTML = assigneeOptions('');
   document.getElementById('tmpl-days').value = '0';
   document.getElementById('template-modal').classList.add('open');
 }
 
+function openEditTemplate(id) {
+  const t = templateTasks.find(x => x.id === id);
+  if (!t) return;
+  editingTemplateId = id;
+  document.getElementById('template-modal-title').textContent = 'Edit task template';
+  document.getElementById('template-modal-sub').textContent = 'Update this template task.';
+  document.getElementById('template-save-btn').textContent = 'Save changes';
+  document.getElementById('tmpl-subject').value = t.subject || '';
+  document.getElementById('tmpl-assigned').innerHTML = assigneeOptions(t.assigned_to || '');
+  document.getElementById('tmpl-days').value = (t.days_offset != null ? t.days_offset : 0);
+  document.getElementById('template-modal').classList.add('open');
+}
+
 async function saveTemplate() {
   const subject = document.getElementById('tmpl-subject').value.trim();
   if (!subject) { toast('Subject required', true); return; }
-  // Create the profile on the fly if this is a brand-new one.
+  const fields = {
+    subject,
+    assigned_to: document.getElementById('tmpl-assigned').value.trim() || null,
+    days_offset: parseInt(document.getElementById('tmpl-days').value) || 0
+  };
+  // Editing an existing template task.
+  if (editingTemplateId) {
+    try {
+      await sbPatch('task_templates', `id=eq.${editingTemplateId}`, fields);
+      closeModal('template-modal');
+      loadTemplates();
+      toast('Task updated');
+    } catch (e) { toast('Failed to save: ' + e.message, true); }
+    return;
+  }
+  // Adding a new template task. Create the profile on the fly if brand-new.
   if (!currentProfile.id) {
     const name = document.getElementById('profile-name').value.trim();
     if (!name) { toast('Give this profile a name first', true); return; }
@@ -1837,9 +1885,7 @@ async function saveTemplate() {
     await sbPost('task_templates', {
       profile_id: currentProfile.id,
       type: templateType,
-      subject,
-      assigned_to: document.getElementById('tmpl-assigned').value.trim() || null,
-      days_offset: parseInt(document.getElementById('tmpl-days').value) || 0,
+      ...fields,
       sort_order: 99
     });
     closeModal('template-modal');
@@ -1853,6 +1899,67 @@ async function deleteTemplate(id) {
   await sbDelete('task_templates', `id=eq.${id}`);
   loadTemplates();
   toast('Task removed');
+}
+
+// ─── DRAG-TO-REORDER TEMPLATE TASKS ───────────────────────────────────────────
+let tmplDrag = null;
+
+function orderOfRows(tbody) {
+  return [...tbody.querySelectorAll('tr[data-tid]')].map(r => r.dataset.tid);
+}
+
+function templateDragStart(e, id) {
+  const row = e.currentTarget.closest('tr');
+  const tbody = document.getElementById('template-body');
+  if (!row || !tbody) return;
+  e.preventDefault();
+  try { e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  tmplDrag = { id, row, tbody, startOrder: orderOfRows(tbody).join(',') };
+  row.classList.add('dragging');
+  document.body.classList.add('tmpl-dragging');
+  window.addEventListener('pointermove', templateDragMove, { passive: false });
+  window.addEventListener('pointerup', templateDragEnd);
+  window.addEventListener('pointercancel', templateDragEnd);
+}
+
+function templateDragMove(e) {
+  if (!tmplDrag) return;
+  e.preventDefault();
+  const y = e.clientY;
+  const others = [...tmplDrag.tbody.querySelectorAll('tr[data-tid]')].filter(r => r !== tmplDrag.row);
+  let inserted = false;
+  for (const r of others) {
+    const rect = r.getBoundingClientRect();
+    if (y < rect.top + rect.height / 2) {
+      tmplDrag.tbody.insertBefore(tmplDrag.row, r);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) tmplDrag.tbody.appendChild(tmplDrag.row);
+}
+
+async function templateDragEnd() {
+  if (!tmplDrag) return;
+  const { row, tbody, startOrder } = tmplDrag;
+  window.removeEventListener('pointermove', templateDragMove);
+  window.removeEventListener('pointerup', templateDragEnd);
+  window.removeEventListener('pointercancel', templateDragEnd);
+  row.classList.remove('dragging');
+  document.body.classList.remove('tmpl-dragging');
+  const ids = orderOfRows(tbody);
+  tmplDrag = null;
+  // Renumber the visible index cells immediately.
+  [...tbody.querySelectorAll('tr[data-tid] .tmpl-num')].forEach((el, i) => el.textContent = i + 1);
+  if (ids.join(',') === startOrder) return;   // nothing actually moved
+  try {
+    await Promise.all(ids.map((id, i) => sbPatch('task_templates', `id=eq.${id}`, { sort_order: i })));
+    templateTasks.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    toast('Order saved');
+  } catch (err) {
+    toast('Could not save order: ' + (err.message || err), true);
+    loadTemplates();
+  }
 }
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────────
