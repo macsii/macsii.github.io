@@ -230,9 +230,9 @@
   .modal { background: white; border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
   .modal h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
   .modal p { font-size: 13px; color: var(--text-2); margin-bottom: 20px; }
-  .form-row { margin-bottom: 14px; }
+  .form-row { margin-bottom: 14px; min-width: 0; }
   .form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .form-row input, .form-row select, .form-row textarea { width: 100%; border: 1.5px solid var(--border-md); border-radius: var(--radius); padding: 9px 12px; font-size: 14px; font-family: var(--font); color: var(--text); outline: none; background: white; }
+  .form-row input, .form-row select, .form-row textarea { width: 100%; min-width: 0; max-width: 100%; border: 1.5px solid var(--border-md); border-radius: var(--radius); padding: 9px 12px; font-size: 14px; font-family: var(--font); color: var(--text); outline: none; background: white; }
   .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--brand); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
@@ -245,6 +245,21 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e; color: white; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; }
   .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ─── Mobile ─────────────────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    /* Employee list: drop the title so the tabs + add button fit across the top */
+    #page-list .list-header { padding: 12px 14px; gap: 8px; }
+    #page-list .list-header h1 { display: none; }
+    #page-list .list-tabs { flex: 1; }
+    #page-list .list-tabs .list-tab { flex: 1; }
+    #page-list .list-header .btn-primary { flex: 0 0 auto; padding: 8px 12px; }
+    #page-list .list-header .btn-text-full { display: none; }  /* add button shows just "+" */
+
+    /* Roomier taps + no field overflow inside the add/edit modal */
+    .modal { padding: 20px 18px; }
+    .form-grid { gap: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -319,7 +334,7 @@
         <button class="list-tab active" onclick="setType('onboarding')">Onboarding</button>
         <button class="list-tab" onclick="setType('offboarding')">Offboarding</button>
       </div>
-      <button class="btn btn-primary" onclick="openAddEmployee()">+ Add employee</button>
+      <button class="btn btn-primary" onclick="openAddEmployee()">+<span class="btn-text-full"> Add employee</span></button>
     </div>
     <div class="list-body">
       <div class="search-row">
@@ -526,8 +541,8 @@
 // │  then save the file. You only ever do this once.                          │
 // │  (Find both at: Supabase → your project → Settings → API)                 │
 // └─────────────────────────────────────────────────────────────────────────┘
-const SB_URL = "https://ascjdrqhnuyndmbhhoni.supabase.co/";   // ← CONFIGURE ME
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzY2pkcnFobnV5bmRtYmhob25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Mjk3NDUsImV4cCI6MjA5NzIwNTc0NX0.AWCrmcksEi5ljyN8B0m-Adnn5WULVeXIOCKdBX77teQ";    // ← CONFIGURE ME
+const SB_URL = "https://YOUR-PROJECT.supabase.co";   // ← CONFIGURE ME
+const SB_KEY = "PASTE-YOUR-ANON-PUBLIC-KEY-HERE";    // ← CONFIGURE ME
 
 let currentType = 'onboarding';
 let currentTemplateType = 'onboarding';
