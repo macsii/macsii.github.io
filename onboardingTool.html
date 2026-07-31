@@ -689,6 +689,29 @@ function assigneeOptions(selectedValue) {
   return opts;
 }
 
+// Role placeholders offered at the top of a TEMPLATE's "Default assigned to" list.
+// They get substituted when the template is applied: Manager → the reports-to
+// person (onboarding); I.T → Jeff Waite and HR → Rob Switzer (offboarding).
+const TEMPLATE_ROLES = ['I.T', 'HR', 'Manager'];
+function templateAssigneeOptions(selectedValue) {
+  const val = selectedValue || '';
+  let matched = (val === '');
+  const roleOpts = TEMPLATE_ROLES.map(r => {
+    const sel = (r === val) ? ' selected' : '';
+    if (sel) matched = true;
+    return `<option value="${escapeHtml(r)}"${sel}>${escapeHtml(r)}</option>`;
+  }).join('');
+  const peopleOpts = users.map(u => {
+    const sel = (u.name === val) ? ' selected' : '';
+    if (sel) matched = true;
+    return `<option value="${escapeHtml(u.name)}"${sel}>${escapeHtml(u.name)}</option>`;
+  }).join('');
+  const extra = (!matched && val) ? `<option value="${escapeHtml(val)}" selected>${escapeHtml(val)}</option>` : '';
+  return `<option value="">Unassigned</option>`
+    + `<optgroup label="Roles (auto-filled on apply)">${roleOpts}</optgroup>`
+    + `<optgroup label="People">${peopleOpts}${extra}</optgroup>`;
+}
+
 // Populate the "Build tasks from template" dropdown in the add-employee modal.
 async function fillTemplateProfileSelect() {
   const sel = document.getElementById('emp-template-profile');
@@ -1895,7 +1918,7 @@ function openAddTemplate() {
   document.getElementById('template-modal-sub').textContent = 'This task will be auto-created for all new employees of this type.';
   document.getElementById('template-save-btn').textContent = 'Add template';
   document.getElementById('tmpl-subject').value = '';
-  document.getElementById('tmpl-assigned').innerHTML = assigneeOptions('');
+  document.getElementById('tmpl-assigned').innerHTML = templateAssigneeOptions('');
   document.getElementById('tmpl-days').value = '0';
   document.getElementById('template-modal').classList.add('open');
 }
@@ -1908,7 +1931,7 @@ function openEditTemplate(id) {
   document.getElementById('template-modal-sub').textContent = 'Update this template task.';
   document.getElementById('template-save-btn').textContent = 'Save changes';
   document.getElementById('tmpl-subject').value = t.subject || '';
-  document.getElementById('tmpl-assigned').innerHTML = assigneeOptions(t.assigned_to || '');
+  document.getElementById('tmpl-assigned').innerHTML = templateAssigneeOptions(t.assigned_to || '');
   document.getElementById('tmpl-days').value = (t.days_offset != null ? t.days_offset : 0);
   document.getElementById('template-modal').classList.add('open');
 }
