@@ -161,6 +161,7 @@
   .card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; }
   .card-header { padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); color: var(--text); background: var(--surface-2); }
   .card-header-actions { margin-left: auto; display: flex; gap: 6px; }
+  .detail-template-select { font-size: 12px; padding: 4px 8px; border: 1px solid var(--border-md); border-radius: var(--radius); background: white; color: var(--text); font-family: var(--font); cursor: pointer; max-width: 160px; }
   .info-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .info-cell { padding: 10px 16px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
   .info-cell:nth-child(even) { border-right: none; }
@@ -1010,7 +1011,7 @@ async function renderEmployeeList() {
       </div>
       <div class="emp-card-meta">
         <div class="emp-card-meta-item"><span>Department</span>${emp.department || '—'}</div>
-        <div class="emp-card-meta-item"><span>Start date</span>${startDate}</div>
+        <div class="emp-card-meta-item"><span>${emp.type === 'offboarding' ? 'End date' : 'Start date'}</span>${startDate}</div>
         <div class="emp-card-meta-item"><span>Location</span>${emp.location || '—'}</div>
         <div class="emp-card-meta-item"><span>Reports to</span>${emp.reports_to || '—'}</div>
       </div>
@@ -1102,7 +1103,7 @@ function renderDetailInfo() {
       <div class="info-grid">
         <div class="info-cell"><div class="info-label">Name</div><div class="info-value">${e.name}</div></div>
         <div class="info-cell"><div class="info-label">Title</div><div class="info-value">${e.title || '—'}</div></div>
-        <div class="info-cell"><div class="info-label">Start date</div><div class="info-value">${startDate}</div></div>
+        <div class="info-cell"><div class="info-label">${e.type === 'offboarding' ? 'End date' : 'Start date'}</div><div class="info-value">${startDate}</div></div>
         <div class="info-cell"><div class="info-label">Department</div><div class="info-value">${e.department || '—'}</div></div>
         <div class="info-cell"><div class="info-label">Reports to</div><div class="info-value">${e.reports_to || '—'}</div></div>
         <div class="info-cell"><div class="info-label">Profile</div><div class="info-value">${e.profile || '—'}</div></div>
@@ -1113,6 +1114,9 @@ function renderDetailInfo() {
     <div class="card" id="task-card">
       <div class="card-header">✅ ${currentEmployee.type === 'onboarding' ? 'Onboarding' : 'Offboarding'} tasks
         <div class="card-header-actions">
+          <select id="detail-template-select" class="detail-template-select" onchange="applyTemplateToCurrent(this.value)" title="Rebuild this employee's tasks from a template">
+            <option value="">Task template…</option>
+          </select>
           <button class="btn btn-sm btn-primary" onclick="showAddTaskRow()">+ Add task</button>
         </div>
       </div>
@@ -1140,6 +1144,7 @@ function renderDetailInfo() {
     <div class="record-meta" id="record-meta"></div>`;
   renderTasks();
   renderRecordMeta();
+  fillDetailTemplateSelect();
 }
 
 async function loadTasks() {
@@ -1594,18 +1599,103 @@ function openEditEmployee() {
   document.getElementById('employee-modal').classList.add('open');
 }
 
-// Fill in an employee's "Manager" placeholder tasks with their reports-to person,
-// but only if that person already exists in the system (so Wes/Derek don't fire).
-// Returns true if any update was attempted.
-async function reassignManagerTasks(employeeId, reportsToName) {
-  const name = (reportsToName || '').trim();
-  if (!name) return false;
-  const user = users.find(u => (u.name || '').trim().toLowerCase() === name.toLowerCase());
-  if (!user) return false; // not in the system yet — fire nowhere
+// Assignee substitution when applying a template to an employee.
+// Offboarding routes generic roles to the fixed people who handle offboarding.
+const OFFBOARDING_ASSIGNEE_MAP = {
+  'i.t': 'Jeff Waite', 'it': 'Jeff Waite', 'i.t.': 'Jeff Waite', 'i t': 'Jeff Waite',
+  'hr': 'Rob Switzer', 'h.r': 'Rob Switzer', 'h.r.': 'Rob Switzer', 'human resources': 'Rob Switzer'
+};
+
+function substituteAssignee(rawAssignee, employee) {
+  const a = (rawAssignee || '').trim();
+  if (!a) return a;
+  const low = a.toLowerCase();
+  if (employee.type === 'offboarding') {
+    return OFFBOARDING_ASSIGNEE_MAP[low] || a;   // I.T → Jeff Waite, HR → Rob Switzer
+  }
+  // Onboarding: route "Manager" tasks to the reports-to person if they're in the system.
+  if (low === 'manager') {
+    const rt = (employee.reports_to || '').trim();
+    const u = rt ? users.find(x => (x.name || '').trim().toLowerCase() === rt.toLowerCase()) : null;
+    return u ? u.name : a;
+  }
+  return a;
+}
+
+// Fetch a profile's template tasks for an employee type (falls back to default profile).
+async function fetchProfileTemplates(profileId, type) {
+  let pid = profileId;
+  if (!pid) {
+    try { const dp = await sbGet('template_profiles', 'is_default=eq.true&select=id&limit=1'); pid = dp && dp[0] && dp[0].id; } catch (e) {}
+  }
+  const filter = pid ? `profile_id=eq.${pid}&type=eq.${type}` : `type=eq.${type}`;
+  return sbGet('task_templates', `${filter}&order=sort_order.asc`);
+}
+
+// Turn template rows into task rows for an employee.
+function buildTaskBodies(employee, templates, employeeId) {
+  const startDate = employee.start_date ? new Date(employee.start_date + 'T00:00:00') : new Date();
+  return templates.map((t, i) => ({
+    employee_id: employeeId,
+    subject: t.subject,
+    assigned_to: substituteAssignee(t.assigned_to, employee),
+    due_date: (() => { const d = new Date(startDate); d.setDate(d.getDate() + (t.days_offset || 0)); return d.toISOString().split('T')[0]; })(),
+    status: 'Not Started',
+    sort_order: i
+  }));
+}
+
+// When an onboarding employee's "Reports to" is set or changed, move the manager
+// tasks (still literally "Manager", or already assigned to the previous manager)
+// to the newly-selected person. Returns true if any update was attempted.
+async function reassignManagerTasks(employeeId, oldName, newName) {
+  const newN = (newName || '').trim();
+  if (!newN) return false;
+  const u = users.find(x => (x.name || '').trim().toLowerCase() === newN.toLowerCase());
+  const target = u ? u.name : newN;
   try {
-    await sbPatch('tasks', `employee_id=eq.${employeeId}&assigned_to=ilike.manager`, { assigned_to: user.name });
+    await sbPatch('tasks', `employee_id=eq.${employeeId}&assigned_to=ilike.manager`, { assigned_to: target });
+    const oldN = (oldName || '').trim();
+    if (oldN && oldN.toLowerCase() !== target.toLowerCase()) {
+      await sbPatch('tasks', `employee_id=eq.${employeeId}&assigned_to=eq.${encodeURIComponent(oldN)}`, { assigned_to: target });
+    }
     return true;
   } catch (e) { console.error('reassignManagerTasks failed', e); return false; }
+}
+
+async function fillDetailTemplateSelect() {
+  const sel = document.getElementById('detail-template-select');
+  if (!sel) return;
+  if (!templateProfiles.length) {
+    try { templateProfiles = await sbGet('template_profiles', 'order=is_default.desc,name.asc'); } catch (e) {}
+  }
+  sel.innerHTML = '<option value="">Task template…</option>' +
+    templateProfiles.map(p => `<option value="${p.id}">${escapeHtml(p.name)}${p.is_default ? ' (default)' : ''}</option>`).join('');
+}
+
+// Rebuild the current employee's tasks from a chosen template profile.
+async function applyTemplateToCurrent(profileId) {
+  const sel = document.getElementById('detail-template-select');
+  if (!profileId) return;
+  const prof = templateProfiles.find(p => p.id === profileId);
+  const profName = prof ? prof.name : 'this template';
+  const ok = await uiConfirm(
+    `This will remove all of ${currentEmployee.name}'s current tasks and rebuild them from the “${profName}” template.`,
+    { title: 'Apply template?', confirmLabel: 'Replace tasks', danger: true }
+  );
+  if (sel) sel.value = '';
+  if (!ok) return;
+  try {
+    const templates = await fetchProfileTemplates(profileId, currentEmployee.type);
+    await sbDelete('tasks', `employee_id=eq.${currentEmployee.id}`);
+    const taskBodies = buildTaskBodies(currentEmployee, templates, currentEmployee.id);
+    if (taskBodies.length) await sbPost('tasks', taskBodies);
+    await loadTasks();
+    renderTasks();
+    if (typeof updateProgressPanel === 'function') updateProgressPanel();
+    touchEmployee();
+    toast('Tasks rebuilt from template');
+  } catch (e) { toast('Failed to apply template: ' + e.message, true); }
 }
 
 async function saveEmployee() {
@@ -1636,6 +1726,8 @@ async function saveEmployee() {
 
   try {
     if (editingEmployeeId) {
+      const oldEmp = employees.find(e => e.id === editingEmployeeId) || currentEmployee || {};
+      const oldReportsTo = oldEmp.reports_to || null;
       const [updated] = await sbPatch('employees', `id=eq.${editingEmployeeId}`, body);
       const idx = employees.findIndex(e => e.id === editingEmployeeId);
       if (idx !== -1) employees[idx] = updated;
@@ -1645,8 +1737,8 @@ async function saveEmployee() {
       const i2 = employees.findIndex(e => e.id === editingEmployeeId);
       if (i2 !== -1) employees[i2] = currentEmployee;
       await patchEmployeeMeta(editingEmployeeId, { updated_by: currentUser, updated_at: new Date().toISOString() }, currentEmployee);
-      // Setting/changing "Reports to" fills in any existing "Manager" tasks for this employee.
-      const changed = await reassignManagerTasks(editingEmployeeId, body.reports_to);
+      // Setting/changing "Reports to" moves this employee's Manager tasks to the new person.
+      const changed = await reassignManagerTasks(editingEmployeeId, oldReportsTo, body.reports_to);
       if (changed) await loadTasks();
       renderDetailInfo();
       renderDetailRight();
@@ -1658,41 +1750,9 @@ async function saveEmployee() {
       await patchEmployeeMeta(emp.id, { created_by: currentUser }, emp);
       // Apply templates if checked
       if (document.getElementById('apply-templates').checked) {
-        // Build tasks from the template profile chosen in the dropdown. Falls back
-        // to the default profile, then to all templates of the type (pre-update6).
-        let profileId = document.getElementById('emp-template-profile')?.value || null;
-        if (!profileId) {
-          try {
-            const dp = await sbGet('template_profiles', 'is_default=eq.true&select=id&limit=1');
-            profileId = dp && dp[0] && dp[0].id;
-          } catch (e) {}
-        }
-        const tmplFilter = profileId
-          ? `profile_id=eq.${profileId}&type=eq.${body.type}`
-          : `type=eq.${body.type}`;
-        const templates = await sbGet('task_templates', `${tmplFilter}&order=sort_order.asc`);
-        const startDate = body.start_date ? new Date(body.start_date + 'T00:00:00') : new Date();
-        // If "Reports to" is a person who exists in the system, route their
-        // "Manager" template tasks to that user. If they're not in the system
-        // yet (e.g. Wes/Derek), leave those tasks as "Manager" — nothing fires.
-        const reportsTo = (body.reports_to || '').trim();
-        const reportsUser = reportsTo
-          ? users.find(u => (u.name || '').trim().toLowerCase() === reportsTo.toLowerCase())
-          : null;
-        const taskBodies = templates.map((t, i) => {
-          let assignedTo = t.assigned_to;
-          if ((assignedTo || '').trim().toLowerCase() === 'manager' && reportsUser) {
-            assignedTo = reportsUser.name;
-          }
-          return {
-            employee_id: emp.id,
-            subject: t.subject,
-            assigned_to: assignedTo,
-            due_date: (() => { const d = new Date(startDate); d.setDate(d.getDate() + (t.days_offset || 0)); return d.toISOString().split('T')[0]; })(),
-            status: 'Not Started',
-            sort_order: i
-          };
-        });
+        const profileId = document.getElementById('emp-template-profile')?.value || null;
+        const templates = await fetchProfileTemplates(profileId, body.type);
+        const taskBodies = buildTaskBodies(emp, templates, emp.id);
         if (taskBodies.length) await sbPost('tasks', taskBodies);
       }
       closeModal('employee-modal');
