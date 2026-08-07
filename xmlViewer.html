@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Freshdesk Archive Viewer</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --panel2:#f7f8fa; --border:#e3e5ea;
+    --text:#1f2430; --muted:#767d8c; --accent:#2f6fed; --accent-soft:#eaf1ff;
+    --green:#1f9254; --green-soft:#e6f6ec;
+    --amber:#a5690a; --amber-soft:#fff3dd;
+    --blue:#2f6fed; --blue-soft:#eaf1ff;
+    --gray:#5b6270; --gray-soft:#eef0f3;
+    --purple:#7c4fd6; --purple-soft:#f1ebfd;
+    --red:#d64545; --red-soft:#fdeaea;
+    --row-hover:#f2f4f8; --code:#f7f8fa;
+    --shadow: 0 1px 2px rgba(20,20,30,.05), 0 1px 8px rgba(20,20,30,.04);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;}
+  #app{display:flex;height:100vh;}
+
+  /* Sidebar */
+  #sidebar{width:250px;min-width:200px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+  #sidebar h1{font-size:15px;margin:0;padding:16px 16px 2px;font-weight:700;letter-spacing:.2px;}
+  #sidebar .sub{padding:0 16px 12px;color:var(--muted);font-size:11.5px;line-height:1.4;}
+  #pickerRow{padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap;}
+  button.pickBtn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-size:12.5px;cursor:pointer;font-weight:600;}
+  button.pickBtn:hover{background:#255cd0;}
+  button.pickBtn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  button.pickBtn.secondary:hover{border-color:var(--accent);}
+  input[type=file]{display:none;}
+  #fileList{flex:0 1 auto;overflow-y:auto;padding:4px 8px;max-height:34vh;}
+  .fileItem{padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px;}
+  .fileItem:hover{background:var(--row-hover);}
+  .fileItem.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .fileItem .sz{font-size:10px;color:var(--muted);white-space:nowrap;}
+  .fileItem .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fileItem .dot{width:6px;height:6px;border-radius:50%;background:#c7cbd4;flex:0 0 auto;}
+  .fileItem .dot.done{background:var(--green);}
+  #sidebarStats{padding:12px 16px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;}
+  #sidebarStats b{color:var(--text);}
+  #sidebarFoot{padding:10px 16px;border-top:1px solid var(--border);color:var(--muted);font-size:10.5px;line-height:1.5;margin-top:auto;}
+
+  /* Tabs */
+  #tabbar{display:flex;gap:2px;padding:10px 20px 0;background:var(--panel);border-bottom:1px solid var(--border);}
+  .tabBtn{background:none;border:none;padding:9px 14px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;}
+  .tabBtn.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tabBtn:hover{color:var(--text);}
+
+  #main{flex:1;display:flex;flex-direction:column;min-width:0;}
+
+  /* Progress overlay */
+  #progressBar{display:none;padding:10px 20px;background:#fff9e8;border-bottom:1px solid #f0e2b0;font-size:12.5px;color:#7a5b00;align-items:center;gap:10px;}
+  #progressBar .bar{flex:1;height:6px;background:#f0e2b0;border-radius:3px;overflow:hidden;}
+  #progressBar .fill{height:100%;background:#c99a12;width:0%;transition:width .2s;}
+
+  /* Empty state */
+  #emptyState{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:40px;}
+  #emptyState h2{color:var(--text);font-weight:700;font-size:18px;margin-bottom:8px;}
+  #emptyState p{font-size:13.5px;max-width:440px;line-height:1.6;}
+
+  /* Helpdesk view layout */
+  #helpdeskView{flex:1;display:none;overflow:hidden;flex-direction:column;}
+  #helpdeskView.show{display:flex;}
+  #hdToolbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;background:var(--panel);flex-wrap:wrap;}
+  #hdToolbar input[type=text]{flex:1;min-width:200px;background:var(--code);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;color:var(--text);}
+  #hdToolbar select{background:var(--code);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12.5px;color:var(--text);}
+  #hdBody{flex:1;display:flex;overflow:hidden;}
+
+  #ticketListCol{width:360px;min-width:280px;border-right:1px solid var(--border);overflow-y:auto;background:var(--panel);}
+  .ticketRow{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .ticketRow:hover{background:var(--row-hover);}
+  .ticketRow.active{background:var(--accent-soft);border-left:3px solid var(--accent);padding-left:13px;}
+  .ticketRow .trTop{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;}
+  .ticketRow .trSubj{font-weight:600;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+  .ticketRow .trId{font-size:11px;color:var(--muted);white-space:nowrap;}
+  .ticketRow .trMeta{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+  .ticketRow .trReq{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ticketRow .trDate{font-size:10.5px;color:var(--muted);white-space:nowrap;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+  #loadMoreWrap{padding:14px;text-align:center;}
+  #loadMoreWrap button{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12.5px;}
+
+  #ticketDetailCol{flex:1;overflow-y:auto;background:var(--bg);}
+  #ticketPlaceholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13.5px;}
+  #ticketDetail{display:none;padding:24px 32px 60px;max-width:820px;}
+  #ticketDetail.show{display:block;}
+  #tdHeader{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow);}
+  #tdHeader .tdSubj{font-size:18px;font-weight:700;margin-bottom:8px;}
+  #tdHeader .tdBadges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  #tdHeader .tdMetaGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:12.5px;color:var(--muted);}
+  #tdHeader .tdMetaGrid b{color:var(--text);font-weight:600;}
+  #tdHeader .tdTags{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;}
+  .tagChip{background:var(--gray-soft);color:var(--gray);font-size:11px;padding:3px 9px;border-radius:20px;}
+
+  .msgCard{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .msgCard.priv{border-color:#f0d98a;}
+  .msgHead{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--panel2);border-bottom:1px solid var(--border);}
+  .msgCard.priv .msgHead{background:var(--amber-soft);}
+  .msgFrom{font-size:12.5px;font-weight:700;}
+  .msgRole{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:2px 8px;border-radius:20px;margin-left:8px;}
+  .msgTime{font-size:11px;color:var(--muted);white-space:nowrap;}
+  .msgBodyWrap{padding:14px 16px;font-size:13px;line-height:1.6;}
+  .msgBodyWrap iframe{width:100%;border:none;display:block;}
+  .msgAttachments{padding:0 16px 14px;display:flex;flex-direction:column;gap:6px;}
+  .attRow{display:flex;align-items:center;gap:8px;font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;}
+  .attRow a{color:var(--accent);text-decoration:none;font-weight:600;}
+  .attRow a:hover{text-decoration:underline;}
+  .attSize{color:var(--muted);}
+
+  #attachWarn{background:#fff3dd;border:1px solid #f0d98a;color:#7a5b00;font-size:11.5px;padding:8px 14px;border-radius:8px;margin-bottom:16px;line-height:1.5;}
+
+  /* Raw view (generic xml browser, fallback) */
+  #rawView{flex:1;display:none;flex-direction:column;overflow:hidden;}
+  #rawView.show{display:flex;}
+  #rawTopbar{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--panel);flex-wrap:wrap;}
+  #rawTopbar .title{font-weight:700;font-size:14px;}
+  #rawTopbar .meta{color:var(--muted);font-size:12px;}
+  #rawSearchBox{flex:1;min-width:180px;background:var(--code);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;}
+  #rawViewToggle{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  #rawViewToggle button{background:var(--panel2);border:none;color:var(--muted);padding:7px 12px;font-size:12px;cursor:pointer;}
+  #rawViewToggle button.active{background:var(--accent);color:#fff;}
+  #rawContent{flex:1;overflow:auto;background:var(--panel);}
+  table.recTable{border-collapse:collapse;width:100%;font-size:12.5px;}
+  table.recTable thead th{position:sticky;top:0;background:var(--panel2);text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;cursor:pointer;}
+  table.recTable tbody td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;}
+  table.recTable tbody tr{cursor:pointer;}
+  table.recTable tbody tr:hover{background:var(--row-hover);}
+  table.recTable tbody td.nilcell{color:#b8bcc4;}
+  mark{background:#ffe08a;border-radius:2px;}
+  #rawPager{display:flex;align-items:center;gap:10px;padding:10px 20px;border-top:1px solid var(--border);background:var(--panel);font-size:12.5px;color:var(--muted);}
+  #rawPager button{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12px;}
+  #rawPager button:disabled{opacity:.4;cursor:default;}
+  .treeWrap{padding:16px 20px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.65;}
+  .node{margin-left:16px;}
+  .node.root{margin-left:0;}
+  .nodeHead{cursor:pointer;}
+  .nodeHead:hover{background:var(--row-hover);}
+  .toggle{display:inline-block;width:14px;color:var(--muted);}
+  .tag{color:#b5651d;}
+  .attrname{color:#2f7d32;}
+  .attrval{color:#333;}
+  .nilval{color:#aaa;font-style:italic;}
+  .collapsed > .childrenBox{display:none;}
+  .count{color:var(--muted);font-size:11px;margin-left:6px;}
+
+  #recordModalOverlay{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:50;}
+  #recordModalOverlay.show{display:flex;}
+  #recordModalBox{background:var(--panel);border:1px solid var(--border);border-radius:10px;width:min(760px,92vw);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px #0003;}
+  #recordModalHead{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  #recordModalHead .t{font-weight:700;font-size:14px;}
+  #recordModalHead button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
+  #recordModalBody{overflow:auto;padding:14px 18px;}
+  #recordModalBody table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  #recordModalBody td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
+  #recordModalBody td.k{color:var(--muted);white-space:nowrap;width:180px;font-family:ui-monospace,monospace;}
+  #recordModalBody td.v{word-break:break-word;white-space:pre-wrap;}
+
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:#d4d7dd;border-radius:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <h1>Freshdesk Archive</h1>
+    <div class="sub">View your exported tickets, users &amp; companies — fully offline. Nothing leaves your computer.</div>
+    <div id="pickerRow">
+      <button class="pickBtn" id="btnFolder">Open folder</button>
+      <button class="pickBtn secondary" id="btnFiles">Open files</button>
+    </div>
+    <div id="fileList"></div>
+    <input type="file" id="folderInput" webkitdirectory directory multiple>
+    <input type="file" id="filesInput" accept=".xml" multiple>
+    <div id="sidebarStats"></div>
+    <div id="sidebarFoot">Chrome/Edge: "Open folder" loads every .xml file at once and builds the ticket desk automatically. Attachment download links embedded in tickets expire ~7 days after export.</div>
+  </div>
+
+  <div id="main">
+    <div id="tabbar" style="display:none;">
+      <button class="tabBtn active" id="tabHelpdesk">Tickets</button>
+      <button class="tabBtn" id="tabRaw">Raw data</button>
+    </div>
+    <div id="progressBar"><span id="progressLabel">Parsing…</span><div class="bar"><div class="fill" id="progressFill"></div></div></div>
+
+    <div id="emptyState">
+      <h2>No files loaded</h2>
+      <p>Click "Open folder" and select your Freshdesk export folder. All Tickets*.xml files will be combined into a searchable ticket desk that looks and works like Freshdesk — no subscription required.</p>
+    </div>
+
+    <div id="helpdeskView">
+      <div id="hdToolbar">
+        <input type="text" id="hdSearch" placeholder="Search subject, requester, tag…">
+        <select id="hdStatusFilter"><option value="">All statuses</option></select>
+        <select id="hdPriorityFilter"><option value="">All priorities</option></select>
+        <select id="hdSort">
+          <option value="created_desc">Newest first</option>
+          <option value="created_asc">Oldest first</option>
+          <option value="updated_desc">Recently updated</option>
+        </select>
+      </div>
+      <div id="hdBody">
+        <div id="ticketListCol"></div>
+        <div id="ticketDetailCol">
+          <div id="ticketPlaceholder">Select a ticket to view the conversation</div>
+          <div id="ticketDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rawView">
+      <div id="rawTopbar">
+        <div class="title" id="rawFileTitle"></div>
+        <div class="meta" id="rawFileMeta"></div>
+        <input id="rawSearchBox" placeholder="Search records / fields…">
+        <div id="rawViewToggle">
+          <button id="btnRawTable" class="active">Table</button>
+          <button id="btnRawTree">Tree</button>
+        </div>
+      </div>
+      <div id="rawContent"></div>
+      <div id="rawPager" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="recordModalOverlay">
+  <div id="recordModalBox">
+    <div id="recordModalHead"><div class="t" id="recordModalTitle">Record</div><button id="recordModalClose">✕</button></div>
+    <div id="recordModalBody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const el = id => document.getElementById(id);
+
+  const state = {
+    files: {},
+    fileStatus: {},      // key -> 'pending' | 'done'
+    usersMap: {},         // id -> {name, email}
+    tickets: [],
+    filteredTickets: [],
+    selectedTicketId: null,
+    listLimit: 250,
+    activeTab: 'helpdesk',
+    hasTickets: false,
+    // raw view state
+    raw: { activeName: null, records: [], columns: [], filtered: [], page:1, pageSize:50, sortCol:null, sortDir:1, view:'table', rootDoc:null }
+  };
+
+  // ---------------- File pickers ----------------
+  el('btnFolder').addEventListener('click', () => el('folderInput').click());
+  el('btnFiles').addEventListener('click', () => el('filesInput').click());
+  el('folderInput').addEventListener('change', e => handleFileList(e.target.files));
+  el('filesInput').addEventListener('change', e => handleFileList(e.target.files));
+
+  function handleFileList(fileListObj){
+    const files = Array.from(fileListObj).filter(f => f.name.toLowerCase().endsWith('.xml'));
+    if(!files.length){ alert('No .xml files found in that selection.'); return; }
+    files.forEach(f => {
+      const key = f.webkitRelativePath || f.name;
+      state.files[key] = f;
+      state.fileStatus[key] = 'pending';
+    });
+    renderFileList();
+    el('emptyState').style.display = 'none';
+    el('tabbar').style.display = 'flex';
+    aggregateAll();
+  }
+
+  function renderFileList(){
+    const list = el('fileList');
+    list.innerHTML = '';
+    Object.keys(state.files).sort().forEach(key => {
+      const f = state.files[key];
+      const item = document.createElement('div');
+      item.className = 'fileItem' + (key === state.raw.activeName && state.activeTab==='raw' ? ' active' : '');
+      const shortName = key.split('/').pop();
+      const done = state.fileStatus[key] === 'done';
+      item.innerHTML = `<span class="dot ${done?'done':''}"></span><span class="nm" title="${escapeHtml(key)}">${escapeHtml(shortName)}</span><span class="sz">${fmtSize(f.size)}</span>`;
+      item.addEventListener('click', () => openRawFile(key));
+      list.appendChild(item);
+    });
+  }
+
+  function fmtSize(bytes){
+    if(bytes > 1024*1024) return (bytes/(1024*1024)).toFixed(1) + ' MB';
+    if(bytes > 1024) return (bytes/1024).toFixed(0) + ' KB';
+    return bytes + ' B';
+  }
+
+  function readFileText(file){
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = ev => resolve(ev.target.result);
+      r.onerror = reject;
+      r.readAsText(file);
+    });
+  }
+
+  // ---------------- Aggregation pipeline ----------------
+  async function aggregateAll(){
+    const keys = Object.keys(state.files);
+    const userFiles = keys.filter(k => /(^|\/)(users|allagents)/i.test(k.split('/').pop()));
+    const ticketFiles = keys.filter(k => /(^|\/)tickets/i.test(k.split('/').pop())).filter(k => state.fileStatus[k] !== 'done' || true);
+
+    const toProcess = [...userFiles.filter(k=>state.fileStatus[k]!=='done'), ...ticketFiles.filter(k=>state.fileStatus[k]!=='done')];
+    if(!toProcess.length) return;
+
+    el('progressBar').style.display = 'flex';
+    for(let i=0;i<toProcess.length;i++){
+      const key = toProcess[i];
+      el('progressLabel').textContent = `Parsing ${key.split('/').pop()} (${i+1}/${toProcess.length})…`;
+      el('progressFill').style.width = Math.round((i/toProcess.length)*100) + '%';
+      await new Promise(r => setTimeout(r, 15)); // let UI paint
+      try{
+        const text = await readFileText(state.files[key]);
+        const doc = new DOMParser().parseFromString(text, 'application/xml');
+        if(doc.querySelector('parsererror')) throw new Error('parse error');
+        const root = doc.documentElement;
+        const shortName = key.split('/').pop();
+        if(/^(users|allagents)/i.test(shortName)){
+          ingestUsers(root);
+        } else if(/^tickets/i.test(shortName)){
+          ingestTickets(root);
+        }
+        state.fileStatus[key] = 'done';
+      }catch(e){
+        console.error('Failed to parse', key, e);
+        state.fileStatus[key] = 'done';
+      }
+      renderFileList();
+    }
+    el('progressFill').style.width = '100%';
+    setTimeout(() => { el('progressBar').style.display = 'none'; }, 250);
+
+    if(state.tickets.length){
+      state.hasTickets = true;
+      buildFilterOptions();
+      applyHelpdeskFilters();
+      showTab('helpdesk');
+    }
+    updateSidebarStats();
+  }
+
+  function ingestUsers(root){
+    Array.from(root.children).forEach(u => {
+      const id = textOf(u, 'id');
+      if(!id) return;
+      state.usersMap[id] = {
+        name: textOf(u, 'name') || '',
+        email: textOf(u, 'email') || ''
+      };
+    });
+  }
+
+  function textOf(parent, tag){
+    const c = parent.querySelector(':scope > ' + tag);
+    if(!c) return null;
+    if(c.getAttribute('nil') === 'true') return null;
+    return c.textContent;
+  }
+
+  function ingestTickets(root){
+    Array.from(root.children).forEach(t => {
+      const ticket = extractTicket(t);
+      if(ticket) state.tickets.push(ticket);
+    });
+  }
+
+  function extractTicket(t){
+    const id = textOf(t, 'id');
+    if(!id) return null;
+    const requesterEl = t.querySelector(':scope > requester');
+    let requester = null;
+    if(requesterEl){
+      requester = {
+        id: textOf(requesterEl, 'id'),
+        name: textOf(requesterEl, 'name'),
+        email: textOf(requesterEl, 'email'),
+        phone: textOf(requesterEl, 'phone')
+      };
+      if(requester.id) state.usersMap[requester.id] = { name: requester.name||'', email: requester.email||'' };
+    }
+
+    const tags = [];
+    const tagsEl = t.querySelector(':scope > tags');
+    if(tagsEl) Array.from(tagsEl.children).forEach(tg => {
+      const nm = textOf(tg, 'name');
+      if(nm) tags.push(nm);
+    });
+
+    const attachments = extractAttachments(t.querySelector(':scope > attachments'));
+
+    const notes = [];
+    const notesEl = t.querySelector(':scope > notes');
+    if(notesEl) Array.from(notesEl.children).forEach(n => {
+      notes.push({
+        id: textOf(n, 'id'),
+        body: textOf(n, 'body') || '',
+        bodyHtml: textOf(n, 'body-html') || '',
+        userId: textOf(n, 'user-id'),
+        incoming: textOf(n, 'incoming') === 'true',
+        private: textOf(n, 'private') === 'true',
+        createdAt: textOf(n, 'created-at'),
+        supportEmail: textOf(n, 'support-email'),
+        attachments: extractAttachments(n.querySelector(':scope > attachments'))
+      });
+    });
+
+    return {
+      id,
+      displayId: textOf(t, 'display-id') || id,
+      subject: textOf(t, 'subject') || '(no subject)',
+      description: textOf(t, 'description') || '',
+      descriptionHtml: textOf(t, 'description-html') || '',
+      statusName: textOf(t, 'status-name') || statusFromInt(textOf(t,'status')),
+      priorityName: textOf(t, 'priority-name') || priorityFromInt(textOf(t,'priority')),
+      sourceName: textOf(t, 'source-name') || '',
+      requesterName: textOf(t, 'requester-name') || (requester && requester.name) || 'Unknown',
+      responderName: textOf(t, 'responder-name') || '',
+      createdAt: textOf(t, 'created-at'),
+      updatedAt: textOf(t, 'updated-at'),
+      dueBy: textOf(t, 'due-by'),
+      requester,
+      tags,
+      attachments,
+      notes,
+      toEmail: textOf(t, 'to-email')
+    };
+  }
+
+  function extractAttachments(container){
+    if(!container) return [];
+    return Array.from(container.children).map(a => ({
+      id: textOf(a,'id'),
+      name: textOf(a,'content-file-name') || 'attachment',
+      size: textOf(a,'content-file-size'),
+      url: textOf(a,'attachment_url') || textOf(a,'attachment-url')
+    }));
+  }
+
+  function statusFromInt(v){
+    return { '2':'Open','3':'Pending','4':'Resolved','5':'Closed' }[v] || 'Unknown';
+  }
+  function priorityFromInt(v){
+    return { '1':'Low','2':'Medium','3':'High','4':'Urgent' }[v] || 'Unknown';
+  }
+
+  function updateSidebarStats(){
+    const box = el('sidebarStats');
+    if(!state.tickets.length){ box.innerHTML = ''; return; }
+    const userCount = Object.keys(state.usersMap).length;
+    box.innerHTML = `<b>${state.tickets.length.toLocaleString()}</b> tickets loaded<br><b>${userCount.toLocaleString()}</b> known contacts`;
+  }
+
+  // ---------------- Tabs ----------------
+  el('tabHelpdesk').addEventListener('click', () => showTab('helpdesk'));
+  el('tabRaw').addEventListener('click', () => showTab('raw'));
+
+  function showTab(tab){
+    state.activeTab = tab;
+    el('tabHelpdesk').classList.toggle('active', tab==='helpdesk');
+    el('tabRaw').classList.toggle('active', tab==='raw');
+    el('helpdeskView').classList.toggle('show', tab==='helpdesk');
+    el('rawView').classList.toggle('show', tab==='raw');
+    if(tab === 'helpdesk' && !state.tickets.length){
+      el('helpdeskView').classList.remove('show');
+      el('emptyState').style.display = 'flex';
+      el('emptyState').querySelector('p').textContent = 'No tickets found yet. Load Tickets*.xml files via "Open folder" to build the ticket desk.';
+    } else {
+      el('emptyState').style.display = 'none';
+    }
+    renderFileList();
+  }
+
+  // ---------------- Helpdesk: filters ----------------
+  function buildFilterOptions(){
+    const statuses = new Set(), priorities = new Set();
+    state.tickets.forEach(t => { statuses.add(t.statusName); priorities.add(t.priorityName); });
+    const statusSel = el('hdStatusFilter');
+    const prioSel = el('hdPriorityFilter');
+    statusSel.innerHTML = '<option value="">All statuses</option>' + Array.from(statuses).sort().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    prioSel.innerHTML = '<option value="">All priorities</option>' + Array.from(priorities).sort().map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  }
+
+  let searchDebounce;
+  el('hdSearch').addEventListener('input', () => { clearTimeout(searchDebounce); searchDebounce = setTimeout(() => { state.listLimit = 250; applyHelpdeskFilters(); }, 180); });
+  el('hdStatusFilter').addEventListener('change', () => { state.listLimit = 250; applyHelpdeskFilters(); });
+  el('hdPriorityFilter').addEventListener('change', () => { state.listLimit = 250; applyHelpdeskFilters(); });
+  el('hdSort').addEventListener('change', () => applyHelpdeskFilters());
+
+  function applyHelpdeskFilters(){
+    const q = el('hdSearch').value.trim().toLowerCase();
+    const statusF = el('hdStatusFilter').value;
+    const prioF = el('hdPriorityFilter').value;
+    let list = state.tickets.filter(t => {
+      if(statusF && t.statusName !== statusF) return false;
+      if(prioF && t.priorityName !== prioF) return false;
+      if(q){
+        const hay = (t.subject + ' ' + t.requesterName + ' ' + t.tags.join(' ') + ' ' + t.description).toLowerCase();
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    const sort = el('hdSort').value;
+    list.sort((a,b) => {
+      if(sort === 'created_asc') return cmpDate(a.createdAt, b.createdAt);
+      if(sort === 'updated_desc') return cmpDate(b.updatedAt, a.updatedAt);
+      return cmpDate(b.createdAt, a.createdAt);
+    });
+    state.filteredTickets = list;
+    renderTicketList();
+  }
+  function cmpDate(a,b){ return new Date(a||0) - new Date(b||0); }
+
+  function renderTicketList(){
+    const col = el('ticketListCol');
+    const shown = state.filteredTickets.slice(0, state.listLimit);
+    let html = '';
+    shown.forEach(t => {
+      const active = t.id === state.selectedTicketId ? ' active' : '';
+      html += `<div class="ticketRow${active}" data-id="${t.id}">
+        <div class="trTop">
+          <span class="trSubj" title="${escapeAttr(t.subject)}">${escapeHtml(t.subject)}</span>
+          <span class="trId">#${escapeHtml(t.displayId)}</span>
+        </div>
+        <div class="trMeta">
+          <span class="trReq">${escapeHtml(t.requesterName)}</span>
+          <span class="trDate">${fmtDate(t.updatedAt || t.createdAt)}</span>
+        </div>
+        <div class="trTop" style="margin-top:6px;">
+          ${statusBadge(t.statusName)} ${priorityBadge(t.priorityName)}
+        </div>
+      </div>`;
+    });
+    col.innerHTML = html;
+    col.querySelectorAll('.ticketRow').forEach(row => {
+      row.addEventListener('click', () => selectTicket(row.dataset.id));
+    });
+    if(state.filteredTickets.length > state.listLimit){
+      const wrap = document.createElement('div');
+      wrap.id = 'loadMoreWrap';
+      wrap.innerHTML = `<button id="loadMoreBtn">Load ${Math.min(250, state.filteredTickets.length-state.listLimit)} more (${state.filteredTickets.length-state.listLimit} remaining)</button>`;
+      col.appendChild(wrap);
+      el('loadMoreBtn').addEventListener('click', () => { state.listLimit += 250; renderTicketList(); });
+    } else if(!shown.length){
+      col.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;text-align:center;">No tickets match your filters.</div>';
+    }
+  }
+
+  const STATUS_COLORS = {
+    open: ['green','green-soft'], pending: ['amber','amber-soft'], resolved: ['blue','blue-soft'],
+    closed: ['gray','gray-soft'], 'waiting on customer': ['purple','purple-soft'], 'in progress': ['blue','blue-soft']
+  };
+  function statusBadge(name){
+    const key = (name||'').toLowerCase();
+    const [c, bg] = STATUS_COLORS[key] || ['gray','gray-soft'];
+    return `<span class="badge" style="color:var(--${c});background:var(--${bg});">${escapeHtml(name||'Unknown')}</span>`;
+  }
+  const PRIO_COLORS = { low:['gray','gray-soft'], medium:['blue','blue-soft'], high:['amber','amber-soft'], urgent:['red','red-soft'] };
+  function priorityBadge(name){
+    const key = (name||'').toLowerCase();
+    const [c, bg] = PRIO_COLORS[key] || ['gray','gray-soft'];
+    return `<span class="badge" style="color:var(--${c});background:var(--${bg});">${escapeHtml(name||'Unknown')}</span>`;
+  }
+
+  function fmtDate(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    if(isNaN(d)) return '';
+    return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+  }
+
+  // ---------------- Ticket detail ----------------
+  function selectTicket(id){
+    state.selectedTicketId = id;
+    renderTicketList();
+    const t = state.tickets.find(x => x.id === id);
+    if(!t) return;
+    el('ticketPlaceholder').style.display = 'none';
+    const detail = el('ticketDetail');
+    detail.classList.add('show');
+
+    const hasAttachments = t.attachments.length || t.notes.some(n => n.attachments.length);
+
+    let html = '';
+    if(hasAttachments){
+      html += `<div id="attachWarn">Attachment links were valid for about 7 days from when this archive was exported and may no longer work.</div>`;
+    }
+    html += `<div id="tdHeader">
+      <div class="tdSubj">${escapeHtml(t.subject)}</div>
+      <div class="tdBadges">${statusBadge(t.statusName)} ${priorityBadge(t.priorityName)}</div>
+      <div class="tdMetaGrid">
+        <div>Ticket <b>#${escapeHtml(t.displayId)}</b></div>
+        <div>Source <b>${escapeHtml(t.sourceName||'—')}</b></div>
+        <div>Requester <b>${escapeHtml(t.requesterName)}</b>${t.requester && t.requester.email ? ' &lt;'+escapeHtml(t.requester.email)+'&gt;' : ''}</div>
+        <div>Agent <b>${escapeHtml(t.responderName || 'Unassigned')}</b></div>
+        <div>Created <b>${escapeHtml(fmtDate(t.createdAt))}</b></div>
+        <div>Updated <b>${escapeHtml(fmtDate(t.updatedAt))}</b></div>
+      </div>
+      ${t.tags.length ? `<div class="tdTags">${t.tags.map(tag=>`<span class="tagChip">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+    </div>`;
+
+    // build conversation: description first, then notes, sorted by time
+    const items = [];
+    items.push({ kind:'original', createdAt: t.createdAt, from: t.requesterName, body: t.description, bodyHtml: t.descriptionHtml, attachments: t.attachments });
+    t.notes.forEach(n => items.push({ kind: n.private ? 'private' : (n.incoming ? 'customer' : 'agent'), createdAt: n.createdAt, from: userName(n.userId, n.incoming ? t.requesterName : (t.responderName||'Agent')), body: n.body, bodyHtml: n.bodyHtml, attachments: n.attachments }));
+    items.sort((a,b) => cmpDate(a.createdAt, b.createdAt));
+
+    detail.innerHTML = html;
+    items.forEach(it => detail.appendChild(renderMessageCard(it)));
+  }
+
+  function userName(userId, fallback){
+    if(userId && state.usersMap[userId] && state.usersMap[userId].name) return state.usersMap[userId].name;
+    return fallback || 'Unknown';
+  }
+
+  const ROLE_LABEL = { original:'Original message', customer:'Customer reply', agent:'Agent reply', private:'Private note' };
+  const ROLE_COLOR = { original:['blue','blue-soft'], customer:['gray','gray-soft'], agent:['blue','blue-soft'], private:['amber','amber-soft'] };
+
+  function renderMessageCard(it){
+    const card = document.createElement('div');
+    card.className = 'msgCard' + (it.kind==='private' ? ' priv' : '');
+    const [c,bg] = ROLE_COLOR[it.kind] || ['gray','gray-soft'];
+    const head = document.createElement('div');
+    head.className = 'msgHead';
+    head.innerHTML = `<div><span class="msgFrom">${escapeHtml(it.from)}</span><span class="msgRole" style="color:var(--${c});background:var(--${bg});">${ROLE_LABEL[it.kind]}</span></div><div class="msgTime">${escapeHtml(fmtDate(it.createdAt))}</div>`;
+    card.appendChild(head);
+
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'msgBodyWrap';
+    if(it.bodyHtml && it.bodyHtml.trim()){
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('sandbox', 'allow-same-origin');
+      iframe.srcdoc = `<!doctype html><html><head><base target="_blank"><meta charset="utf-8"><style>
+        body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#1f2430;word-wrap:break-word;overflow-wrap:break-word;}
+        img{max-width:100%;height:auto;}
+        table{max-width:100%;}
+        a{color:#2f6fed;}
+      </style></head><body>${it.bodyHtml}</body></html>`;
+      iframe.addEventListener('load', () => {
+        try{
+          const h = iframe.contentDocument.body.scrollHeight;
+          iframe.style.height = (h+4) + 'px';
+        }catch(e){ iframe.style.height = '80px'; }
+      });
+      bodyWrap.appendChild(iframe);
+    } else {
+      const pre = document.createElement('div');
+      pre.style.whiteSpace = 'pre-wrap';
+      pre.textContent = it.body || '(no content)';
+      bodyWrap.appendChild(pre);
+    }
+    card.appendChild(bodyWrap);
+
+    if(it.attachments && it.attachments.length){
+      const attWrap = document.createElement('div');
+      attWrap.className = 'msgAttachments';
+      it.attachments.forEach(a => {
+        const row = document.createElement('div');
+        row.className = 'attRow';
+        row.innerHTML = `📎 ${a.url ? `<a href="${escapeAttr(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.name)}</a>` : escapeHtml(a.name)} <span class="attSize">${a.size ? fmtSize(+a.size) : ''}</span>`;
+        attWrap.appendChild(row);
+      });
+      card.appendChild(attWrap);
+    }
+    return card;
+  }
+
+  // ==================================================================
+  // RAW FILE VIEWER (generic XML browser, for Users/Companies/Solutions/etc.)
+  // ==================================================================
+  function openRawFile(key){
+    showTab('raw');
+    state.raw.activeName = key;
+    renderFileList();
+    const file = state.files[key];
+    el('rawContent').innerHTML = '<div style="padding:40px;color:var(--muted);">Loading…</div>';
+    el('rawPager').style.display = 'none';
+    el('rawTopbar').style.display = 'none';
+    readFileText(file).then(text => rawParseAndRender(text, file)).catch(() => {
+      el('rawContent').innerHTML = '<div style="padding:40px;color:var(--muted);">Could not read file.</div>';
+    });
+  }
+
+  function rawParseAndRender(text, file){
+    let doc;
+    try{
+      doc = new DOMParser().parseFromString(text, 'application/xml');
+      if(doc.querySelector('parsererror')) throw new Error('parse error');
+    }catch(e){
+      el('rawContent').innerHTML = '<div style="padding:40px;color:var(--muted);">Could not parse this file as XML.</div>';
+      return;
+    }
+    state.raw.rootDoc = doc;
+    const root = doc.documentElement;
+    const isArray = root.getAttribute('type') === 'array' && root.children.length;
+    el('rawTopbar').style.display = 'flex';
+    el('rawFileTitle').textContent = file.name;
+    el('rawFileMeta').textContent = fmtSize(file.size);
+    el('rawSearchBox').value = '';
+
+    if(isArray){
+      buildRawRecords(root);
+      el('rawFileMeta').textContent = `${state.raw.records.length.toLocaleString()} records · ${fmtSize(file.size)}`;
+      state.raw.page = 1; state.raw.sortCol = null; state.raw.view = 'table';
+      setRawViewBtn();
+      rawApplyFilter();
+      showRawTable();
+    } else {
+      state.raw.records = [];
+      state.raw.view = 'tree';
+      setRawViewBtn();
+      showRawTree();
+    }
+  }
+
+  function buildRawRecords(root){
+    const children = Array.from(root.children);
+    const colSet = [], colSeen = new Set();
+    const records = children.map(recEl => {
+      const fields = {};
+      Array.from(recEl.children).forEach(fEl => {
+        const name = fEl.tagName;
+        if(!colSeen.has(name)){ colSeen.add(name); colSet.push(name); }
+        const nil = fEl.getAttribute('nil') === 'true';
+        const hasKids = fEl.children.length > 0;
+        fields[name] = { text: nil ? '' : (hasKids ? '' : fEl.textContent.trim()), nil, hasKids, el: fEl };
+      });
+      return { el: recEl, fields };
+    });
+    state.raw.records = records;
+    const priority = ['id','name','subject','email','display-id','status','created-at'];
+    colSet.sort((a,b) => { const pa=priority.indexOf(a), pb=priority.indexOf(b); if(pa!==-1||pb!==-1) return (pa===-1?999:pa)-(pb===-1?999:pb); return 0; });
+    state.raw.columns = colSet.slice(0,10);
+  }
+
+  el('rawSearchBox').addEventListener('input', debounce(() => {
+    state.raw.page = 1;
+    rawApplyFilter();
+    if(state.raw.view === 'table') showRawTable(); else showRawTree();
+  }, 180));
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+  function rawApplyFilter(){
+    const q = el('rawSearchBox').value.trim().toLowerCase();
+    if(!q){ state.raw.filtered = state.raw.records; return; }
+    state.raw.filtered = state.raw.records.filter(r => Object.values(r.fields).some(f => f.text && f.text.toLowerCase().includes(q)));
+  }
+
+  el('btnRawTable').addEventListener('click', () => { state.raw.view='table'; setRawViewBtn(); showRawTable(); });
+  el('btnRawTree').addEventListener('click', () => { state.raw.view='tree'; setRawViewBtn(); showRawTree(); });
+  function setRawViewBtn(){
+    el('btnRawTable').classList.toggle('active', state.raw.view==='table');
+    el('btnRawTree').classList.toggle('active', state.raw.view==='tree');
+  }
+
+  function showRawTable(){
+    if(!state.raw.records.length){ showRawTree(); return; }
+    el('rawPager').style.display = 'flex';
+    const total = state.raw.filtered.length;
+    const pages = Math.max(1, Math.ceil(total/state.raw.pageSize));
+    state.raw.page = Math.min(state.raw.page, pages);
+    const start = (state.raw.page-1)*state.raw.pageSize;
+    let rows = state.raw.filtered.slice(start, start+state.raw.pageSize);
+    if(state.raw.sortCol){
+      rows = state.raw.filtered.slice().sort((a,b) => {
+        const av=(a.fields[state.raw.sortCol]||{}).text||'', bv=(b.fields[state.raw.sortCol]||{}).text||'';
+        return av.localeCompare(bv, undefined, {numeric:true}) * state.raw.sortDir;
+      }).slice(start, start+state.raw.pageSize);
+    }
+    const q = el('rawSearchBox').value.trim().toLowerCase();
+    let html = '<table class="recTable"><thead><tr>';
+    state.raw.columns.forEach(c => {
+      const arrow = state.raw.sortCol===c ? (state.raw.sortDir===1?' ▲':' ▼') : '';
+      html += `<th data-col="${escapeHtml(c)}">${escapeHtml(c)}${arrow}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    rows.forEach(r => {
+      const idx = state.raw.records.indexOf(r);
+      html += `<tr data-idx="${idx}">`;
+      state.raw.columns.forEach(c => {
+        const f = r.fields[c];
+        if(!f || f.nil) html += '<td class="nilcell">—</td>';
+        else if(f.hasKids) html += '<td class="nilcell">[nested]</td>';
+        else html += `<td title="${escapeAttr(f.text)}">${highlight(escapeHtml(truncate(f.text,120)), q)}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    el('rawContent').innerHTML = html;
+    el('rawContent').querySelectorAll('thead th').forEach(th => th.addEventListener('click', () => {
+      const c = th.dataset.col;
+      if(state.raw.sortCol===c) state.raw.sortDir*=-1; else { state.raw.sortCol=c; state.raw.sortDir=1; }
+      showRawTable();
+    }));
+    el('rawContent').querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => openRecordModal(state.raw.records[+tr.dataset.idx])));
+    renderRawPager(total, pages);
+  }
+
+  function renderRawPager(total, pages){
+    const p = el('rawPager');
+    p.innerHTML = `<button id="rpFirst">« First</button><button id="rpPrev">‹ Prev</button><span>Page ${state.raw.page} / ${pages} · ${total.toLocaleString()} record${total===1?'':'s'}</span><button id="rpNext">Next ›</button><button id="rpLast">Last »</button>
+      <span style="margin-left:auto;">Rows per page: <select id="rpSize">${[25,50,100,250,500].map(n=>`<option value="${n}" ${n===state.raw.pageSize?'selected':''}>${n}</option>`).join('')}</select></span>`;
+    el('rpFirst').disabled = state.raw.page<=1;
+    el('rpPrev').disabled = state.raw.page<=1;
+    el('rpNext').disabled = state.raw.page>=pages;
+    el('rpLast').disabled = state.raw.page>=pages;
+    el('rpFirst').onclick = () => { state.raw.page=1; showRawTable(); };
+    el('rpPrev').onclick = () => { state.raw.page=Math.max(1,state.raw.page-1); showRawTable(); };
+    el('rpNext').onclick = () => { state.raw.page=Math.min(pages,state.raw.page+1); showRawTable(); };
+    el('rpLast').onclick = () => { state.raw.page=pages; showRawTable(); };
+    el('rpSize').onchange = e => { state.raw.pageSize=+e.target.value; state.raw.page=1; showRawTable(); };
+  }
+
+  function truncate(s,n){ return s.length>n ? s.slice(0,n)+'…' : s; }
+  function highlight(html,q){
+    if(!q) return html;
+    try{ const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'); return html.replace(re,'<mark>$1</mark>'); }catch(e){ return html; }
+  }
+
+  function openRecordModal(record){
+    if(!record) return;
+    el('recordModalTitle').textContent = record.el.tagName + (record.fields.id ? ' #'+record.fields.id.text : '');
+    let html = '<table>';
+    Object.keys(record.fields).forEach(name => {
+      const f = record.fields[name];
+      html += '<tr><td class="k">'+escapeHtml(name)+'</td>';
+      if(f.nil) html += '<td class="v" style="color:#aaa;font-style:italic;">nil</td>';
+      else if(f.hasKids) html += '<td class="v">'+renderMiniTree(f.el)+'</td>';
+      else html += '<td class="v">'+escapeHtml(f.text||'')+'</td>';
+      html += '</tr>';
+    });
+    html += '</table>';
+    el('recordModalBody').innerHTML = html;
+    el('recordModalOverlay').classList.add('show');
+  }
+  function renderMiniTree(elNode){
+    if(!elNode.children.length) return elNode.textContent.trim() ? escapeHtml(elNode.textContent.trim()) : '<span style="color:#aaa;">empty</span>';
+    let out = '<div style="font-family:ui-monospace,monospace;font-size:12px;">';
+    Array.from(elNode.children).forEach(c => {
+      const nil = c.getAttribute('nil')==='true';
+      out += '<div style="margin:2px 0;"><span style="color:#b5651d;">'+escapeHtml(c.tagName)+'</span>: ';
+      out += nil ? '<span style="color:#aaa;font-style:italic;">nil</span>' : (c.children.length ? renderMiniTree(c) : escapeHtml(c.textContent.trim()));
+      out += '</div>';
+    });
+    out += '</div>';
+    return out;
+  }
+  el('recordModalClose').addEventListener('click', () => el('recordModalOverlay').classList.remove('show'));
+  el('recordModalOverlay').addEventListener('click', e => { if(e.target===el('recordModalOverlay')) el('recordModalOverlay').classList.remove('show'); });
+
+  function showRawTree(){
+    el('rawPager').style.display = 'none';
+    const q = el('rawSearchBox').value.trim().toLowerCase();
+    const wrap = document.createElement('div');
+    wrap.className = 'treeWrap';
+    wrap.appendChild(buildTreeNode(state.raw.rootDoc.documentElement, true, q));
+    el('rawContent').innerHTML = '';
+    el('rawContent').appendChild(wrap);
+  }
+
+  function buildTreeNode(node, isRoot, q){
+    const container = document.createElement('div');
+    container.className = 'node' + (isRoot ? ' root' : '');
+    const head = document.createElement('div');
+    head.className = 'nodeHead';
+    const attrs = Array.from(node.attributes||[]).map(a => `<span class="attrname">${escapeHtml(a.name)}</span>=<span class="attrval">"${escapeHtml(a.value)}"</span>`).join(' ');
+    const hasChildren = node.children.length > 0;
+    const nil = node.getAttribute && node.getAttribute('nil')==='true';
+    let label = `<span class="toggle">${hasChildren?'▾':' '}</span><span class="tag">&lt;${escapeHtml(node.tagName)}${attrs?' '+attrs:''}&gt;</span>`;
+    if(!hasChildren){
+      const text = node.textContent.trim();
+      if(nil) label += ' <span class="nilval">nil</span>';
+      else if(text) label += ' ' + highlight(escapeHtml(truncate(text,300)), q);
+    } else {
+      label += `<span class="count">${node.children.length} item${node.children.length===1?'':'s'}</span>`;
+    }
+    head.innerHTML = label;
+    container.appendChild(head);
+    if(hasChildren){
+      const box = document.createElement('div');
+      box.className = 'childrenBox';
+      const limit = 500;
+      Array.from(node.children).slice(0,limit).forEach(c => box.appendChild(buildTreeNode(c, false, q)));
+      if(node.children.length > limit){
+        const more = document.createElement('div');
+        more.style.cssText = 'color:var(--muted);margin-left:16px;padding:4px 0;';
+        more.textContent = `… ${node.children.length-limit} more items not shown (use Table view to browse all)`;
+        box.appendChild(more);
+      }
+      container.appendChild(box);
+      head.addEventListener('click', () => container.classList.toggle('collapsed'));
+      if(!isRoot && node.children.length > 3) container.classList.add('collapsed');
+    }
+    return container;
+  }
+
+  // ---------------- helpers ----------------
+  function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s){ return escapeHtml(s).replace(/\n/g,' '); }
+})();
+</script>
+</body>
+</html>
